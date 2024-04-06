@@ -22,15 +22,17 @@ int main()
 	}
 #elif 1
 	Image image = Image::LoadImage("butterfly.jpg");
-	image = Utilities::Resize(image, 128, 128);
+	//image = Utilities::Resize(image, 128, 128);
+	image = Utilities::Resize(image, 200, 200);
 	//image = Utilities::Crop(image, 100, 100, 300, 300);
 	//image = Utilities::GaussianBlur(image, 0.84089642, 5);
 	//image = Utilities::Rotate(image, { 20.0 });
 	//image = Utilities::HorizontalFlip(image, 1);
 
-	SingleHOGExecutor hoge(image);
-	hoge.Execute();
-
+	//SingleHOGExecutor hoge(image);
+	//hoge.Execute();
+	SlidingHOGExecutor hoges(image);
+	hoges.Execute();
 
 	image.Draw();
 	Utilities::DrawFlush();

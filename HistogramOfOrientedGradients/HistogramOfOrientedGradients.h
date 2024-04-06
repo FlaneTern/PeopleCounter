@@ -25,13 +25,11 @@ struct HOG
 class HOGExecutor
 {
 public:
-	virtual HOG Execute();
 
 protected:
 	void ComputeGradients(const std::vector<std::vector<double>>& kernelX, const std::vector<std::vector<double>>& kernelY);
 	virtual void ConstructAndVoteCells() = 0;
 	virtual void ConstructAndNormalizeBlocks() = 0;
-	virtual HOG GetHOG();
 
 	std::vector<Gradient> m_Gradients;
 
@@ -43,26 +41,39 @@ protected:
 	uint32_t m_CellSize;
 	uint32_t m_BlockSize;
 
-
 	Shape m_CurrentShape;
 
 	static constexpr uint32_t s_Margin = 16;
+	static constexpr uint32_t s_SlidingWindowSize = 128;
 };
 
+// SingleHOGExecutor works on cell coordinates after cells are constructed
 class SingleHOGExecutor : public HOGExecutor
 {
 public:
 	SingleHOGExecutor(Image image);
 	Image ToImage();
-	virtual HOG Execute() override;
+	HOG Execute();
+
 private:
+
 	virtual void ConstructAndVoteCells() override;
 	virtual void ConstructAndNormalizeBlocks() override;
-	virtual HOG GetHOG() override;
+	HOG GetHOG();
 };
 
+// SlidingHOGExecutor works on pixel coordinates, trimmed by cells and then by blocks
 class SlidingHOGExecutor : public HOGExecutor
 {
+public:
+	SlidingHOGExecutor(Image image);
+	std::vector<HOG> Execute();
+private:
+	
+	Shape m_CellShape;
+	Shape m_BlockShape;
+
 	virtual void ConstructAndVoteCells() override;
 	virtual void ConstructAndNormalizeBlocks() override;
+	std::vector<HOG> GetHOGs();
 };
