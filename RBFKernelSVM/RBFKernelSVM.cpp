@@ -26,53 +26,54 @@ RBFKernelSVM::RBFKernelSVM(double kernelParameterGamma, double bias, std::vector
 
 RBFKernelSVM RBFKernelSVM::Load(std::string path)
 {
-	std::ifstream stream(path);
+	std::ifstream stream(path, std::ios::binary);
+	if (stream.fail())
+		throw std::runtime_error("gg");
+
+	std::streamsize fileSize = stream.tellg();
+	stream.seekg(0, std::ios::end);
+	fileSize = stream.tellg() - fileSize;
+	stream.seekg(0, std::ios::beg);
+
+	std::string temp(fileSize, '0');
+	stream.read(&temp[0], fileSize);
+
+	uint64_t currentPos = temp.find('\0');
 
 	std::string name;
+	name = temp.substr(0, currentPos);
+	currentPos++;
 
 	double kernelParameterGamma;
 	double bias;
 	uint64_t lagrangeMultipliersCount;
 	uint64_t featureCount;
 
-	uint64_t currentPos = 0;
-
-	stream.seekg(currentPos);
-	std::getline(stream, name, '\0');
-	currentPos += name.length() + 1;
-
-	stream.seekg(currentPos);
-	stream.read((char*)&kernelParameterGamma, sizeof(kernelParameterGamma));
+	kernelParameterGamma = *(double*)&temp[currentPos];
 	currentPos += sizeof(kernelParameterGamma);
 
-	stream.seekg(currentPos);
-	stream.read((char*)&bias, sizeof(bias));
+	bias = *(double*)&temp[currentPos];
 	currentPos += sizeof(bias);
 
-	stream.seekg(currentPos);
-	stream.read((char*)&lagrangeMultipliersCount, sizeof(lagrangeMultipliersCount));
+	lagrangeMultipliersCount = *(uint64_t*)&temp[currentPos];
 	currentPos += sizeof(lagrangeMultipliersCount);
 
-	stream.seekg(currentPos);
-	stream.read((char*)&featureCount, sizeof(featureCount));
+	featureCount = *(uint64_t*)&temp[currentPos];
 	currentPos += sizeof(featureCount);
 
 	std::vector<double> lagrangeMultipliers(lagrangeMultipliersCount);
 	std::vector<double> labels(lagrangeMultipliersCount);
 	std::vector<std::vector<double>> features(lagrangeMultipliersCount, std::vector<double>(featureCount, 0.0));
 
-
-	stream.seekg(currentPos);
-	stream.read((char*)lagrangeMultipliers.data(), sizeof(lagrangeMultipliers[0]) * lagrangeMultipliersCount);
+	memcpy(lagrangeMultipliers.data(), &temp[currentPos], sizeof(lagrangeMultipliers[0]) * lagrangeMultipliersCount);
 	currentPos += sizeof(lagrangeMultipliers[0]) * lagrangeMultipliersCount;
 
-	stream.read((char*)labels.data(), sizeof(labels[0]) * lagrangeMultipliersCount);
+	memcpy(labels.data(), &temp[currentPos], sizeof(labels[0]) * lagrangeMultipliersCount);
 	currentPos += sizeof(labels[0]) * lagrangeMultipliersCount;
 
 	for (int i = 0; i < lagrangeMultipliersCount; i++)
 	{
-		stream.seekg(currentPos);
-		stream.read((char*)features[i].data(), sizeof(features[i][0]) * featureCount);
+		memcpy(features[i].data(), &temp[currentPos], sizeof(features[i][0]) * featureCount);
 		currentPos += sizeof(features[i][0]) * featureCount;
 	}
 	

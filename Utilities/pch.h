@@ -10,6 +10,7 @@
 #include <chrono>
 #include <fstream>
 #include <filesystem>
+#include <numeric>
 
 #include <iostream> // debugging purposes, maybe delete later
 
