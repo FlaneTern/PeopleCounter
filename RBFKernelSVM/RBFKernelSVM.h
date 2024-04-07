@@ -21,7 +21,9 @@ public:
 	inline std::string SetName(const std::string& name) { m_Name = name; }
 
 	static RBFKernelSVM Load(std::string path);
-	RBFKernelSVM(std::string name, double kernelParameterGamma, double bias, std::vector<double> lagrangeMultipliers, Dataset dataset);
+	RBFKernelSVM(double kernelParameterGamma, double bias, std::vector<double> lagrangeMultipliers, Dataset dataset, std::string name);
+
+	void Log();
 
 private:
 	std::string m_Name;

@@ -16,22 +16,16 @@ void HOGExecutor::ComputeGradients(const std::vector<std::vector<double>>& kerne
 	m_Gradients.clear();
 	m_Gradients.reserve(pixels.size() / m_CurrentShape.c);
 
-	std::vector<double> curGradientsMagnitudes;
 	for (int i = 0; i < pixels.size(); i += m_CurrentShape.c)
 	{
-		curGradientsMagnitudes.clear();
-		curGradientsMagnitudes.reserve(m_CurrentShape.c);
-
-		for (int channel = 0; channel < m_CurrentShape.c; channel++)
-			curGradientsMagnitudes.push_back(std::sqrt(Dx[i + channel] * Dx[i + channel] + Dy[i + channel] * Dy[i + channel]));
-
 		int maxMagnitudeIndex = -1;
 		double maxMagnitudeValue = 0;
 		for (int j = 0; j < m_CurrentShape.c; j++)
 		{
-			if (maxMagnitudeValue <= curGradientsMagnitudes[j])
+			double curMagnitude = std::sqrt(Dx[i + j] * Dx[i + j] + Dy[i + j] * Dy[i + j]);
+			if (maxMagnitudeValue <= curMagnitude)
 			{
-				maxMagnitudeValue = curGradientsMagnitudes[j];
+				maxMagnitudeValue = curMagnitude;
 				maxMagnitudeIndex = j;
 			}
 		}
@@ -63,15 +57,23 @@ HOG SingleHOGExecutor::GetHOG()
 	hog.m_HOG.clear();
 	hog.m_HOG.resize(m_Blocks.size() * 9 * m_BlockSize * m_BlockSize);
 
+	//::cout << "BLOCKSSIZE = " << m_Blocks.size() << '\n';
+
 	for (int i = 0; i < m_Blocks.size(); i++)
-		std::copy(m_Blocks[i].m_HOG.begin(), m_Blocks[i].m_HOG.end(), hog.m_HOG.begin() + i * 9 * m_BlockSize);
+	{
+		std::copy(m_Blocks[i].m_HOG.begin(), m_Blocks[i].m_HOG.end(), hog.m_HOG.begin() + i * 9 * m_BlockSize * m_BlockSize);
+		//std::cout << "BLOCK HOG SIZE (SHOULD BE 36) = " << m_Blocks[i].m_HOG.size() << '\n';
+	}
+
+	//for (int i = 0; i < hog.m_HOG.size(); i++)
+	//	std::cout << hog.m_HOG[i] << ", ";
 
 	return hog;
 }
 
 
 
-HOG SingleHOGExecutor::Execute()
+void SingleHOGExecutor::Execute()
 {
 	m_Image = Utilities::Crop(m_Image, s_Margin, s_Margin, m_CurrentShape.x - (2 * s_Margin), m_CurrentShape.y - (2 * s_Margin));
 
@@ -81,8 +83,6 @@ HOG SingleHOGExecutor::Execute()
 
 	ConstructAndVoteCells();
 	ConstructAndNormalizeBlocks();
-
-	return GetHOG();
 }
 
 
@@ -90,8 +90,18 @@ HOG SingleHOGExecutor::Execute()
 
 void SingleHOGExecutor::ConstructAndVoteCells()
 {
-	static constexpr double BinOrientations[] = { 0, 180.0 * 1 / 8, 180.0 * 2 / 8, 180.0 * 3 / 8, 180.0 * 4 / 8, 180.0 * 5 / 8, 180.0 * 6 / 8, 180.0 * 7 / 8, 180.0 };
 	static constexpr double BinOrientationDifference = 180.0 / 8;
+	static constexpr double BinOrientations[] = { 
+		0,
+		BinOrientationDifference * 1,
+		BinOrientationDifference * 2,
+		BinOrientationDifference * 3,
+		BinOrientationDifference * 4,
+		BinOrientationDifference * 5,
+		BinOrientationDifference * 6,
+		BinOrientationDifference * 7,
+		BinOrientationDifference * 8
+	};
 
 	m_Cells.clear();
 	m_Cells.reserve(m_CurrentShape.y * m_CurrentShape.x / (m_CellSize * m_CellSize));
@@ -158,8 +168,17 @@ void SingleHOGExecutor::ConstructAndNormalizeBlocks()
 			L2Norm += HOG[j] * HOG[j];
 		L2Norm = std::sqrt(L2Norm);
 
+		//for (int l = 0; l < HOG.size(); l++)
+		//	std::cout << HOG[l] << ", ";
+
+		if (L2Norm == 0)
+			throw std::runtime_error("Wut?");
+
 		for (int j = 0; j < HOG.size(); j++)
 			HOG[j] /= L2Norm;
+
+		//for (int l = 0; l < HOG.size(); l++)
+		//	std::cout << HOG[l] << ", ";
 
 		//std::cout << "here\n";
 		m_Blocks.push_back({ HOG });
@@ -183,26 +202,18 @@ Image SingleHOGExecutor::ToImage()
 // SlidingHOGExecutor ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-SlidingHOGExecutor::SlidingHOGExecutor(Image image)
+SlidingHOGExecutor::SlidingHOGExecutor(Image image, uint32_t stride)
+	: m_Stride(stride)
 {
 	m_Image = image;
 	m_CurrentShape = m_Image.GetShape();
 
-	m_CellShape = m_CurrentShape;
-	m_CellShape.x += 1 - m_CellSize;
-	m_CellShape.y += 1 - m_CellSize;
-	m_CellShape.c = 1;
-
-	m_BlockShape = m_CurrentShape;
-	m_BlockShape.x += 1 - (m_CellSize * m_BlockSize);
-	m_BlockShape.y += 1 - (m_CellSize * m_BlockSize);
-	m_BlockShape.c = 1;
 }
 
 
 
 
-std::vector<HOG> SlidingHOGExecutor::Execute()
+void SlidingHOGExecutor::Execute()
 {
 	//m_Image = Utilities::Crop(m_Image, s_Margin, s_Margin, m_CurrentShape.x - (2 * s_Margin), m_CurrentShape.y - (2 * s_Margin));
 
@@ -213,11 +224,10 @@ std::vector<HOG> SlidingHOGExecutor::Execute()
 	ConstructAndVoteCells();
 	ConstructAndNormalizeBlocks();
 
-	std::vector<HOG> hogs = GetHOGs();
+	//std::vector<HOG> hogs = GetHOGs();
 	//std::cout << "window count = " << hogs.size() << '\n';
 	//std::cout << "hog feature count for each window = " << hogs[0].m_HOG.size();
 
-	return GetHOGs();
 }
 
 
@@ -306,6 +316,47 @@ void SlidingHOGExecutor::ConstructAndNormalizeBlocks()
 	//std::cout << "BLOCKSSIZE = " << m_Blocks.size() << '\n';
 }
 
+HOG SlidingHOGExecutor::GetHOG(uint32_t flatIndex)
+{
+	// flatIndex is coords for the detection window
+	// index is converted to bloock coords for the detection window inside margin
+	Shape coords = Utilities::FlatToCoords(flatIndex, m_CurrentShape);
+
+	//check this if statement
+	if (coords.x + s_SlidingWindowSize > m_CurrentShape.x || coords.y + s_SlidingWindowSize > m_CurrentShape.y)
+		throw std::runtime_error("SLIDING WINDOW OUTSIDE OF IMAGE");
+
+	// iuhagroiuaeru
+	int index = flatIndex - ((flatIndex / (m_CurrentShape.c * m_CurrentShape.x)) * (m_CellSize * m_BlockSize - 1));
+	index = index + s_Margin + (m_CurrentShape.x - m_CellSize * m_BlockSize + 1) * s_Margin;
+
+	// hog for current detection window
+	HOG hog;
+	hog.m_HOG.clear();
+
+	uint64_t rowBlockCount = (((s_SlidingWindowSize - 2 * s_Margin) / m_CellSize) - m_BlockSize + 1);
+	hog.m_HOG.resize(rowBlockCount * rowBlockCount * 9 * m_BlockSize * m_BlockSize);
+
+
+	// COLLECT HOG OF CURRENT DETECTION WINDOW
+
+	for (int j = 0; j < rowBlockCount; j++)
+	{
+		for (int k = 0; k < rowBlockCount; k++)
+		{
+			int index2 = index + k * m_CellSize + j * m_CellSize * (m_CurrentShape.x - m_CellSize * m_BlockSize + 1);
+			//std::cout << "index = " << index2 << ", flat index = " << (9 * m_BlockSize * m_BlockSize) * (k + rowBlockCount * j) << '\n';
+			std::copy(m_Blocks[index2].m_HOG.begin(), m_Blocks[index2].m_HOG.end(), hog.m_HOG.begin() + (9 * m_BlockSize * m_BlockSize) * (k + rowBlockCount * j));
+		}
+	}
+
+	return hog;
+}
+
+HOG SlidingHOGExecutor::GetHOG()
+{
+	return GetHOG(m_CurrentHOGGetterIndex);
+}
 
 std::vector<HOG> SlidingHOGExecutor::GetHOGs()
 {
@@ -313,41 +364,35 @@ std::vector<HOG> SlidingHOGExecutor::GetHOGs()
 	hogs.reserve((m_CurrentShape.y - s_SlidingWindowSize + 1) * (m_CurrentShape.x - s_SlidingWindowSize + 1));
 	// i is coords for the detection window
 	// index is coords for the detection window inside margin
-	for (int i = 0; i < m_Gradients.size(); i++)
+	for (int i = 0; i < m_Gradients.size(); i += m_Stride)
 	{
 		Shape coords = Utilities::FlatToCoords(i, m_CurrentShape);
-
 		//check this if statement
-		if (coords.x + s_SlidingWindowSize > m_CurrentShape.x || coords.y + s_SlidingWindowSize > m_CurrentShape.y)
-			continue;
-
-		// iuhagroiuaeru
-		int index = i - ((i / (m_CurrentShape.c * m_CurrentShape.x)) * (m_CellSize * m_BlockSize - 1));
-		index = index + s_Margin + (m_CurrentShape.x - m_CellSize * m_BlockSize + 1) * s_Margin;
-
-		// hog for current detection window
-		HOG hog;
-		hog.m_HOG.clear();
-
-		uint64_t rowBlockCount = (((s_SlidingWindowSize - 2 * s_Margin) / m_CellSize) - m_BlockSize + 1);
-		hog.m_HOG.resize(rowBlockCount * rowBlockCount * 9 * m_BlockSize * m_BlockSize);
-
-
-		// COLLECT HOG OF CURRENT DETECTION WINDOW
-
-		for (int j = 0; j < rowBlockCount; j++)
+		if (coords.x + s_SlidingWindowSize > m_CurrentShape.x)
 		{
-			for (int k = 0; k < rowBlockCount; k++)
-			{
-				int index2 = index + k * m_CellSize + j * m_CellSize * (m_CurrentShape.x - m_CellSize * m_BlockSize + 1);
-				//std::cout << "index = " << index2 << ", flat index = " << (9 * m_BlockSize * m_BlockSize) * (k + rowBlockCount * j) << '\n';
-				std::copy(m_Blocks[index2].m_HOG.begin(), m_Blocks[index2].m_HOG.end(), hog.m_HOG.begin() + (9 * m_BlockSize * m_BlockSize) * (k + rowBlockCount * j));
-			}
+			i = m_Stride * m_CurrentShape.x + m_CurrentShape.x * (i / m_CurrentShape.x) - m_Stride;
+			continue;
 		}
-
-		hogs.push_back(hog);
+		else if (coords.y + s_SlidingWindowSize > m_CurrentShape.y)
+		{
+			break;
+		}
+		std::cout << "i = " << i << '\n';
+		hogs.push_back(GetHOG(i));
 	}
 
 	return hogs;
+}
+
+void SlidingHOGExecutor::AdvanceHOGGetterIndex()
+{
+	Shape coords = Utilities::FlatToCoords(m_CurrentHOGGetterIndex, m_CurrentShape);
+	//check this if statement
+	if (coords.x + s_SlidingWindowSize > m_CurrentShape.x)
+		m_CurrentHOGGetterIndex = m_Stride * m_CurrentShape.x + m_CurrentShape.x * (m_CurrentHOGGetterIndex / m_CurrentShape.x) - m_Stride;
+	else if (coords.y + s_SlidingWindowSize > m_CurrentShape.y)
+		m_CurrentHOGGetterIndex = 0;
+	else
+		m_CurrentHOGGetterIndex += m_Stride;
 }
 

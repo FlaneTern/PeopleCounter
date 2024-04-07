@@ -402,3 +402,4 @@ FodyWeavers.xsd
 ################################################
 *.lib
 *.dll
+WorkingDirectory/testing/*

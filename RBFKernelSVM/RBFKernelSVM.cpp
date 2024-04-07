@@ -21,7 +21,7 @@ RBFKernelSVM::RBFKernelSVM(double kernelParameterGamma)
 RBFKernelSVM::RBFKernelSVM(double kernelParameterGamma, std::string name)
 	: m_KernelParameterGamma(kernelParameterGamma), m_Bias(0.0), m_Name(name) {}
 
-RBFKernelSVM::RBFKernelSVM(std::string name, double kernelParameterGamma, double bias, std::vector<double> lagrangeMultipliers, Dataset dataset)
+RBFKernelSVM::RBFKernelSVM(double kernelParameterGamma, double bias, std::vector<double> lagrangeMultipliers, Dataset dataset, std::string name)
 	: m_Name(name), m_KernelParameterGamma(kernelParameterGamma), m_Bias(bias), m_LagrangeMultipliers(lagrangeMultipliers), m_Dataset(dataset) {}
 
 RBFKernelSVM RBFKernelSVM::Load(std::string path)
@@ -39,25 +39,21 @@ RBFKernelSVM RBFKernelSVM::Load(std::string path)
 
 	stream.seekg(currentPos);
 	std::getline(stream, name, '\0');
-	currentPos += name.length();
+	currentPos += name.length() + 1;
 
 	stream.seekg(currentPos);
-	//stream >> kernelParameterGamma;
 	stream.read((char*)&kernelParameterGamma, sizeof(kernelParameterGamma));
 	currentPos += sizeof(kernelParameterGamma);
 
 	stream.seekg(currentPos);
-	//stream >> bias;
 	stream.read((char*)&bias, sizeof(bias));
 	currentPos += sizeof(bias);
 
 	stream.seekg(currentPos);
-	//stream >> lagrangeMultipliersCount;
 	stream.read((char*)&lagrangeMultipliersCount, sizeof(lagrangeMultipliersCount));
 	currentPos += sizeof(lagrangeMultipliersCount);
 
 	stream.seekg(currentPos);
-	//stream >> featureCount;
 	stream.read((char*)&featureCount, sizeof(featureCount));
 	currentPos += sizeof(featureCount);
 
@@ -67,13 +63,9 @@ RBFKernelSVM RBFKernelSVM::Load(std::string path)
 
 
 	stream.seekg(currentPos);
-	//for (int i = 0; i < lagrangeMultipliersCount; i++)
-		//stream >> lagrangeMultipliers[i];
 	stream.read((char*)lagrangeMultipliers.data(), sizeof(lagrangeMultipliers[0]) * lagrangeMultipliersCount);
 	currentPos += sizeof(lagrangeMultipliers[0]) * lagrangeMultipliersCount;
 
-	//for (int i = 0; i < lagrangeMultipliersCount; i++)
-	//	stream >> labels[i];
 	stream.read((char*)labels.data(), sizeof(labels[0]) * lagrangeMultipliersCount);
 	currentPos += sizeof(labels[0]) * lagrangeMultipliersCount;
 
@@ -84,13 +76,9 @@ RBFKernelSVM RBFKernelSVM::Load(std::string path)
 		currentPos += sizeof(features[i][0]) * featureCount;
 	}
 	
-	//for (int i = 0; i < lagrangeMultipliersCount; i++)
-	//	for (int j = 0; j < featureCount; j++)
-	//		stream >> features[i][j];
-
 	Dataset data = { features, labels };
 
-	return RBFKernelSVM(name, kernelParameterGamma, bias, lagrangeMultipliers, data);
+	return RBFKernelSVM(kernelParameterGamma, bias, lagrangeMultipliers, data, name);
 }
 
 void RBFKernelSVM::Save(std::string path)
@@ -132,6 +120,7 @@ void RBFKernelSVM::Train(const Dataset& data, double regularizationParameterC, u
 
 	for (int i = 0; i < maxIterations && !done; i++)
 	{
+		std::cout << "Training Round " << i << '\n';
 		done = true;
 
 		for (int j = 0; j < m_LagrangeMultipliers.size(); j++)
@@ -142,12 +131,13 @@ void RBFKernelSVM::Train(const Dataset& data, double regularizationParameterC, u
 			{
 				double temp3 = m_LagrangeMultipliers[k] * m_Dataset.Labels[j] * m_Dataset.Labels[k];
 				temp += temp3;
-				temp2 += temp3 * RBFKernel(m_Dataset.Features[i], m_Dataset.Features[j], m_KernelParameterGamma);
+				temp2 += temp3 * RBFKernel(m_Dataset.Features[j], m_Dataset.Features[k], m_KernelParameterGamma);
 			}
 
 			double delta = 1.0 - temp2 - beta * temp;
 
 			m_LagrangeMultipliers[j] += learningRate * delta;
+			//std::cout << "Updating Lagrange Multiplier " << j << " = " << m_LagrangeMultipliers[j] << "\t, Delta = " << learningRate * delta << '\n';
 
 			if (m_LagrangeMultipliers[j] < 0.0)
 				m_LagrangeMultipliers[j] = 0.0;
@@ -170,7 +160,7 @@ void RBFKernelSVM::Train(const Dataset& data, double regularizationParameterC, u
 		if (m_LagrangeMultipliers[i] <= 0.0 || m_LagrangeMultipliers[i] >= regularizationParameterC)
 			continue;
 
-		onMarginCount++;
+		onMarginCount++;	
 
 		m_Bias += m_Dataset.Labels[i];
 
@@ -178,6 +168,8 @@ void RBFKernelSVM::Train(const Dataset& data, double regularizationParameterC, u
 			m_Bias -= m_LagrangeMultipliers[j] * m_Dataset.Labels[j] * RBFKernel(m_Dataset.Features[i], m_Dataset.Features[j], m_KernelParameterGamma);
 	}
 
+	if (onMarginCount == 0)
+		onMarginCount++;
 	m_Bias /= (double)onMarginCount;
 
 	std::cout << "Finished Training";
@@ -193,5 +185,30 @@ double RBFKernelSVM::Predict(std::vector<double> features)
 	result += m_Bias;
 
 	return result;
+}
+
+void RBFKernelSVM::Log()
+{
+	std::cout << "Name = " << m_Name << '\n';
+	std::cout << "Kernel Parameter Gamma = " << m_KernelParameterGamma << '\n';
+	std::cout << "Bias = " << m_Bias << '\n';
+
+	std::cout << "Lagrange Multipliers :\n";
+	for (int i = 0; i < m_LagrangeMultipliers.size(); i++)
+		std::cout << "\tLagrange Multiplier " << i << " = " << m_LagrangeMultipliers[i] << '\n';
+
+	std::cout << "Dataset X :\n";
+	for (int i = 0; i < 1; i++)
+	{
+		std::cout << "\tX " << i << " = { ";
+		for (int j = 0; j < m_Dataset.Features[i].size(); j++)
+			std::cout << m_Dataset.Features[i][j] << ", ";
+		std::cout << " }\n";
+	}
+
+	std::cout << "Dataset Y :\n";
+	for (int i = 0; i < m_Dataset.Labels.size(); i++)
+		std::cout << "\tDataset Y = " << m_Dataset.Labels[i] << '\n';
+
 }
 
