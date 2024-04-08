@@ -4,80 +4,82 @@
 
 Random Random::s_Random;
 
-static std::vector<double> FromCVMat(cv::Mat& mat)
-{
-	uint32_t channels = (mat.type() / 8) + 1;
-	std::vector<double> pixels(mat.rows * mat.cols * channels);
 
-	Shape shape = { mat.cols, mat.rows, channels };
-	for (int i = 0; i < mat.rows * mat.cols * channels; i++)
-	{
-		Shape coords = Utilities::FlatToCoords(i, shape);
-		pixels[i] = (double)mat.at<cv::Vec3b>(coords.y, coords.x).val[coords.c];
-	}
-
-	return pixels;
-}
-
-static cv::Mat ToCVMat(std::vector<double>& pixels, const Shape& shape)
-{
-	int type = CV_MAKETYPE(CV_8U, shape.c);
-	cv::Mat mat(shape.y, shape.x, type);
-
-	for (int i = 0; i < pixels.size(); i++)
-	{
-		Shape coords = Utilities::FlatToCoords(i, shape);
-		mat.at<cv::Vec3b>(coords.y, coords.x).val[coords.c] = (uint8_t)pixels[i];
-	}
-
-	return mat;
-}
-
-
-static std::vector<double> MultMatVec(std::vector<std::vector<double>> mat, std::vector<double> vec)
-{
-	if (mat[0].size() != vec.size())
-		throw std::runtime_error("UNMATCHING MATRIX AND VECTOR SIZE FOR MULTIPLICATION!");
-
-	std::vector<double> result = vec;
-
-	for (int i = 0; i < result.size(); i++)
-	{
-		double sum = 0.0;
-		for (int j = 0; j < result.size(); j++)
-			sum += mat[i][j] * vec[j];
-		result[i] = sum;
-	}
-
-	return result;
-}
-
-static double MultVecVec(std::vector<double> vec1, std::vector<double> vec2)
-{
-	if (vec1.size() != vec2.size())
-		throw std::runtime_error("UNMATCHING VECTOR AND VECTOR SIZE FOR MULTIPLICATION!");
-
-	double sum = 0.0;
-
-	for (int i = 0; i < vec1.size(); i++)
-		sum += vec1[i] * vec2[i];
-
-	return sum;
-}
-
-// p is the function value, i.e. y.
-static double CubicInterpolation(double p0, double p1, double p2, double p3, double x)
-{
-	return
-		(-0.5 * p0 + 1.5 * p1 - 1.5 * p2 + 0.5 * p3) * x * x * x
-		+ (p0 - 2.5 * p1 + 2 * p2 - 0.5 * p3) * x * x
-		+ (-0.5 * p0 + 0.5 * p2) * x + p1;
-}
 
 
 namespace Utilities
 {
 	const double s_Epsilon = 0.00001;
+
+	std::vector<double> FromCVMat(cv::Mat& mat)
+	{
+		uint32_t channels = (mat.type() / 8) + 1;
+		std::vector<double> pixels(mat.rows * mat.cols * channels);
+
+		Shape shape = { mat.cols, mat.rows, channels };
+		for (int i = 0; i < mat.rows * mat.cols * channels; i++)
+		{
+			Shape coords = FlatToCoords(i, shape);
+			pixels[i] = (double)mat.at<cv::Vec3b>(coords.y, coords.x).val[coords.c];
+		}
+
+		return pixels;
+	}
+
+	cv::Mat ToCVMat(std::vector<double>& pixels, const Shape& shape)
+	{
+		int type = CV_MAKETYPE(CV_8U, shape.c);
+		cv::Mat mat(shape.y, shape.x, type);
+
+		for (int i = 0; i < pixels.size(); i++)
+		{
+			Shape coords = FlatToCoords(i, shape);
+			mat.at<cv::Vec3b>(coords.y, coords.x).val[coords.c] = (uint8_t)pixels[i];
+		}
+
+		return mat;
+	}
+
+
+	std::vector<double> MultMatVec(std::vector<std::vector<double>> mat, std::vector<double> vec)
+	{
+		if (mat[0].size() != vec.size())
+			throw std::runtime_error("UNMATCHING MATRIX AND VECTOR SIZE FOR MULTIPLICATION!");
+
+		std::vector<double> result = vec;
+
+		for (int i = 0; i < result.size(); i++)
+		{
+			double sum = 0.0;
+			for (int j = 0; j < result.size(); j++)
+				sum += mat[i][j] * vec[j];
+			result[i] = sum;
+		}
+
+		return result;
+	}
+
+	double MultVecVec(std::vector<double> vec1, std::vector<double> vec2)
+	{
+		if (vec1.size() != vec2.size())
+			throw std::runtime_error("UNMATCHING VECTOR AND VECTOR SIZE FOR MULTIPLICATION!");
+
+		double sum = 0.0;
+
+		for (int i = 0; i < vec1.size(); i++)
+			sum += vec1[i] * vec2[i];
+
+		return sum;
+	}
+
+	// p is the function value, i.e. y.
+	double CubicInterpolation(double p0, double p1, double p2, double p3, double x)
+	{
+		return
+			(-0.5 * p0 + 1.5 * p1 - 1.5 * p2 + 0.5 * p3) * x * x * x
+			+ (p0 - 2.5 * p1 + 2 * p2 - 0.5 * p3) * x * x
+			+ (-0.5 * p0 + 0.5 * p2) * x + p1;
+	}
 
 	void DrawFlush()
 	{
@@ -293,10 +295,10 @@ namespace Utilities
 							int yc = i + y - (kernel.size() / 2);
 							if (!(xc > 0 && yc > 0 && xc < shape.x && yc < shape.y))
 								continue;
-							sum += image[Utilities::CoordsToFlat(xc, yc, k, shape)] * kernel[y][x];
+							sum += image[CoordsToFlat(xc, yc, k, shape)] * kernel[y][x];
 						}
 					}
-					temp[Utilities::CoordsToFlat(j, i, k, shape)] = sum;
+					temp[CoordsToFlat(j, i, k, shape)] = sum;
 				}
 			}
 		}
@@ -320,67 +322,4 @@ namespace Utilities
 
 
 
-Image Image::LoadImage(std::string path)
-{
-	cv::Mat imageMat = cv::imread(path, cv::IMREAD_COLOR);
-	std::string name = Utilities::ParseName(path);
 
-	return Image(imageMat, name);
-}
-
-std::vector<Image> Image::LoadImages(std::vector<std::string> paths)
-{
-	std::vector<Image> images;
-	images.reserve(paths.size());
-
-	for (int i = 0; i < paths.size(); i++)
-	{
-		auto temp = LoadImage(paths[i]);
-		images.push_back(temp);
-	}
-
-	return images;
-}
-
-void Image::Save(std::string path)
-{
-	m_CVMat = ToCVMat(m_Pixels, m_Shape);
-	cv::imwrite(path, m_CVMat);
-}
-
-Image::Image()
-	: m_CVMat(cv::Mat(1, 1, 1)) {}
-
-//Image::Image(Image& other)
-//	: m_Pixels(other.m_Pixels), m_CVMat(other.m_CVMat.clone()), m_Name(other.m_Name), m_Shape(other.m_Shape) {}
-
-Image::Image(cv::Mat image, std::vector<double> pixels, std::string name)
-	: m_CVMat(image.clone()), m_Pixels(pixels), m_Name(name), m_Shape({(uint32_t)image.cols, (uint32_t)image.rows, (uint32_t)(image.type() / 8) + 1 }) {}
-
-Image::Image(cv::Mat image, std::string name)
-	: m_CVMat(image.clone()), m_Pixels(FromCVMat(image)), m_Name(name), m_Shape({ (uint32_t)image.cols, (uint32_t)image.rows, (uint32_t)(image.type() / 8) + 1 }) {}
-
-Image::Image(std::vector<double> pixels, Shape shape, std::string name)
-	: m_CVMat(ToCVMat(pixels, shape)), m_Pixels(pixels), m_Name(name), m_Shape(shape) {}
-
-
-void Image::Draw()
-{
-	m_CVMat = ToCVMat(m_Pixels, m_Shape);
-	cv::imshow(m_Name, m_CVMat);
-}
-
-
-
-uint64_t Random::RandomNumber(uint64_t min, uint64_t max)
-{
-	uint64_t temp = s_Random.m_RNG();
-	if (temp == UINT64_MAX)
-		return min;
-	return temp * (double)((int64_t)(max + 1) - min) / UINT64_MAX + min;
-}
-
-double Random::RandomProbability()
-{
-	return (double)s_Random.m_RNG() / UINT64_MAX;
-}

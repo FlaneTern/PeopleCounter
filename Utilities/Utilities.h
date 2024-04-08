@@ -20,6 +20,19 @@ namespace Utilities
 
 
 
+class Random
+{
+public:
+
+	static uint64_t RandomNumber(uint64_t min, uint64_t max);
+	static double RandomProbability();
+
+	static Random s_Random;
+private:
+	std::mt19937_64 m_RNG = std::mt19937_64(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+};
+
+
 class Image
 {
 public:
@@ -31,12 +44,12 @@ public:
 
 	void Draw();
 
-	inline double GetPixel(uint32_t x, uint32_t y, uint32_t c) { return m_Pixels[Utilities::CoordsToFlat(x, y, c, m_Shape)]; }
+	inline double GetPixel(uint32_t x, uint32_t y, uint32_t c) const { return m_Pixels[Utilities::CoordsToFlat(x, y, c, m_Shape)]; }
 	inline void SetPixel(uint32_t x, uint32_t y, uint32_t c, double value) { m_Pixels[Utilities::CoordsToFlat(x, y, c, m_Shape)] = value; }
 	inline std::vector<double> GetPixels() { return m_Pixels; }
 
-	inline Shape GetShape() { return m_Shape; }
-	inline std::string GetName() { return m_Name; }
+	inline Shape GetShape() const { return m_Shape; }
+	inline std::string GetName() const { return m_Name; }
 
 	void Save(std::string path);
 
@@ -51,17 +64,6 @@ private:
 };
 
 
-class Random
-{
-public:
-
-	static uint64_t RandomNumber(uint64_t min, uint64_t max);
-	static double RandomProbability();
-
-	static Random s_Random;
-private:
-	std::mt19937_64 m_RNG = std::mt19937_64(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-};
 
 
 namespace Utilities
@@ -82,7 +84,13 @@ namespace Utilities
 	Image HorizontalFlip(Image image, double probability);
 	Image Crop(Image image, uint32_t xMin, uint32_t yMin, uint32_t xSize, uint32_t ySize);
 
+	std::vector<double> FromCVMat(cv::Mat& mat);
+	cv::Mat ToCVMat(std::vector<double>& pixels, const Shape& shape);
+	std::vector<double> MultMatVec(std::vector<std::vector<double>> mat, std::vector<double> vec);
+	double MultVecVec(std::vector<double> vec1, std::vector<double> vec2);
 
+	// p is the function value, i.e. y.
+	double CubicInterpolation(double p0, double p1, double p2, double p3, double x);
 
 }
 

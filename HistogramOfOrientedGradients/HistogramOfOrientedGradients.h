@@ -6,13 +6,38 @@ struct Gradient
 	double Orientation;
 };
 
-namespace Kernel
+namespace HOGParameter
 {
-	extern const std::vector<std::vector<double>> s_SobelX;
-	extern const std::vector<std::vector<double>> s_SobelY;
+	typedef std::vector<std::vector<double>> Kernel;
+	extern const Kernel s_SobelX;
+	extern const Kernel s_SobelY;
 
-	extern const std::vector<std::vector<double>> s_FDX;
-	extern const std::vector<std::vector<double>> s_FDY;
+	extern const Kernel s_FDX;
+	extern const Kernel s_FDY;
+
+	typedef std::function<double(double)> VoteMagnitudeFn;
+	typedef std::function<std::vector<double>(std::vector<double>)> BlockNormalizationFn;
+
+	double s_Linear(double magnitude);
+	double s_Square(double magnitude);
+	double s_SquareRoot(double magnitude);
+
+	std::vector<double> s_L1Norm(std::vector<double> hog);
+	std::vector<double> s_L2Norm(std::vector<double> hog);
+
+	struct Parameters
+	{
+		uint32_t SlidingWindowSize;
+		uint32_t Margin;
+		HOGParameter::Kernel XKernel;
+		HOGParameter::Kernel YKernel;
+		uint32_t CellSize;
+		uint32_t BlockSize;
+		bool SignedOrientationBins;
+		uint32_t BinCount;
+		HOGParameter::VoteMagnitudeFn VoteMagnitudeFn;
+		HOGParameter::BlockNormalizationFn BlockNormalizationFn;
+	};
 }
 
 struct HOG
@@ -26,34 +51,35 @@ class HOGExecutor
 {
 public:
 
+	inline Shape GetShape() const { return m_CurrentShape; }
+	inline HOGParameter::Parameters GetParams() const { return m_Params; }
+
+
 protected:
-	void ComputeGradients(const std::vector<std::vector<double>>& kernelX, const std::vector<std::vector<double>>& kernelY);
+	void ComputeGradients();
 	virtual void ConstructAndVoteCells() = 0;
 	virtual void ConstructAndNormalizeBlocks() = 0;
 
-	std::vector<Gradient> m_Gradients;
-
-
 	Image m_Image;
-	std::vector<HOG> m_Cells;
-	std::vector<HOG> m_Blocks;
 
-	uint32_t m_CellSize;
-	uint32_t m_BlockSize;
+	HOGParameter::Parameters m_Params;
 
+	std::vector<Gradient> m_Gradients;
 	Shape m_CurrentShape;
 
-	static constexpr uint32_t s_Margin = 16;
-	static constexpr uint32_t s_SlidingWindowSize = 128;
+	std::vector<HOG> m_Blocks;
+	std::vector<HOG> m_Cells;
 };
 
 // SingleHOGExecutor works on cell coordinates after cells are constructed
 class SingleHOGExecutor : public HOGExecutor
 {
 public:
-	SingleHOGExecutor(Image image);
-	Image ToImage();
+	SingleHOGExecutor(Image image, HOGParameter::Parameters params);
+
 	void Execute();
+
+	Image ToImage();
 	HOG GetHOG();
 
 private:
@@ -66,14 +92,18 @@ private:
 class SlidingHOGExecutor : public HOGExecutor
 {
 public:
-	SlidingHOGExecutor(Image image, uint32_t stride);
+	SlidingHOGExecutor(Image image, HOGParameter::Parameters params, uint32_t stride);
+	SlidingHOGExecutor(const SlidingHOGExecutor& other, double scale);
+
 	void Execute();
 
 	inline uint32_t GetCurrentHOGGetterIndex() const { return m_CurrentHOGGetterIndex; }
+	inline Shape GetCurrentHOGGetterIndexCoords() const { return Utilities::FlatToCoords(m_CurrentHOGGetterIndex, m_CurrentShape); }
 	inline void ResetHOGGetterIndex() { m_CurrentHOGGetterIndex = 0; }
 	void AdvanceHOGGetterIndex();
 	HOG GetHOG();
 	HOG GetHOG(uint32_t flatIndex);
+	
 
 	// dont use this method, it's gonna blow ur ram up (=
 	// use GetHOG with HOGGetterIndex instead

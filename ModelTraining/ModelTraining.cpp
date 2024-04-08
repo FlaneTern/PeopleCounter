@@ -17,12 +17,25 @@ int main()
 	std::vector<double> labels;
 	labels.reserve(handImages.size() + headImages.size());
 
+	HOGParameter::Parameters hogParams =
+	{
+		128,
+		16,
+		HOGParameter::s_SobelX,
+		HOGParameter::s_SobelY,
+		4,
+		2,
+		false,
+		9,
+		HOGParameter::s_Linear, HOGParameter::s_L2Norm
+	};
+
 
 	for (int i = 0; i < handImages.size(); i++)
 	{
 		handImages[i] = Utilities::Resize(handImages[i], 128, 128);
 		//handImages[i] = Utilities::GaussianBlur(handImages[i], 0.8, 5);
-		SingleHOGExecutor hoge(handImages[i]);
+		SingleHOGExecutor hoge(handImages[i], hogParams);
 		hoge.Execute();
 		features.push_back(hoge.GetHOG().m_HOG);
 		labels.push_back(1);
@@ -32,7 +45,7 @@ int main()
 	{
 		headImages[i] = Utilities::Resize(headImages[i], 128, 128);
 		//headImages[i] = Utilities::GaussianBlur(headImages[i], 0.8, 5);
-		SingleHOGExecutor hoge(headImages[i]);
+		SingleHOGExecutor hoge(headImages[i], hogParams);
 		hoge.Execute();
 		features.push_back(hoge.GetHOG().m_HOG);
 		labels.push_back(-1);

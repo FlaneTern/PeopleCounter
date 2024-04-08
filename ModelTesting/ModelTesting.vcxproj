@@ -71,16 +71,16 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(SolutionDir)Utilities;$(SolutionDir)Utilities/opencv;$(SolutionDir)HistogramOfOrientedGradients;$(SolutionDir)RBFKernelSVM;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)Utilities;$(SolutionDir)Utilities/opencv;$(SolutionDir)HistogramOfOrientedGradients;$(SolutionDir)RBFKernelSVM;$(SolutionDir)SlidingWindow;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>$(SolutionDir)Utilities;$(SolutionDir)Utilities/opencv;$(SolutionDir)HistogramOfOrientedGradients;$(SolutionDir)RBFKernelSVM;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)Utilities;$(SolutionDir)Utilities/opencv;$(SolutionDir)HistogramOfOrientedGradients;$(SolutionDir)RBFKernelSVM;$(SolutionDir)SlidingWindow;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(SolutionDir)Utilities;$(SolutionDir)Utilities/opencv;$(SolutionDir)HistogramOfOrientedGradients;$(SolutionDir)RBFKernelSVM;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)Utilities;$(SolutionDir)Utilities/opencv;$(SolutionDir)HistogramOfOrientedGradients;$(SolutionDir)RBFKernelSVM;$(SolutionDir)SlidingWindow;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(SolutionDir)Utilities;$(SolutionDir)Utilities/opencv;$(SolutionDir)HistogramOfOrientedGradients;$(SolutionDir)RBFKernelSVM;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)Utilities;$(SolutionDir)Utilities/opencv;$(SolutionDir)HistogramOfOrientedGradients;$(SolutionDir)RBFKernelSVM;$(SolutionDir)SlidingWindow;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -148,6 +148,9 @@
     </ProjectReference>
     <ProjectReference Include="..\RBFKernelSVM\RBFKernelSVM.vcxproj">
       <Project>{ed22c1ba-13c7-460b-9356-46fa742c92dc}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\SlidingWindow\SlidingWindow.vcxproj">
+      <Project>{e0cd0166-c038-4c8e-8281-a8647fd3eea3}</Project>
     </ProjectReference>
     <ProjectReference Include="..\Utilities\Utilities.vcxproj">
       <Project>{afd8ed82-25ce-4b72-b5ce-041f928cad76}</Project>
