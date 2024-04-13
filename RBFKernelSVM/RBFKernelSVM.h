@@ -13,7 +13,7 @@ public:
 	RBFKernelSVM(double kernelParameterGamma);
 	RBFKernelSVM(double kernelParameterGamma, std::string name);
 	void Train(const Dataset& data, double regularizationParameterC, uint32_t maxIterations, double endDeltaThreshold, double learningRate);
-	double Predict(std::vector<double> features);
+	double Predict(std::vector<double> features) const;
 
 	void Save(std::string path);
 

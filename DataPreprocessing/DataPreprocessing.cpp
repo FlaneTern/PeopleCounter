@@ -5,7 +5,7 @@
 int main()
 {
 
-#if 0
+#if 1
 	std::vector<std::string> paths = Utilities::GetFilesInDirectory("faceimages\\data\\test\\human_body_parts face\\");
 
 

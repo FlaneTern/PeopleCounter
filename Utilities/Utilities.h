@@ -63,6 +63,25 @@ private:
 	Shape m_Shape;
 };
 
+class Timer
+{
+public:
+	Timer();
+	Timer(std::string name);
+
+	void Start();
+	void End(bool log);
+
+private:
+	std::string m_Name;
+	std::chrono::time_point<std::chrono::high_resolution_clock> m_StartTime;
+	double m_TotalTime;
+};
+
+#define APPLYTIMER(FUNCTION, NAME, LOG)		\
+	Timer timer##NAME(#NAME);	\
+	FUNCTION;							\
+	timer##NAME##.End(LOG);
 
 
 
@@ -91,6 +110,16 @@ namespace Utilities
 
 	// p is the function value, i.e. y.
 	double CubicInterpolation(double p0, double p1, double p2, double p3, double x);
+
+	enum class KeyCode
+	{
+		Escape = 0x1B,
+		Enter = 0x0D,
+	};
+
+	bool IsKeyPressed(KeyCode key);
+
+	std::string GetFile();
 
 }
 

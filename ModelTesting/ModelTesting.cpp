@@ -24,11 +24,11 @@ int main()
 	};
 
 	Image image = Image::LoadImage("Testing/Classroom/IMG_2473Edited.png");
-	image = Utilities::Resize(image, 150, 150);
+	image = Utilities::Resize(image, 250, 250);
 
-	SlidingWindow sw(image, hogParams, 3, 0.9, 3, 0.5, svm, svm, svm, svm);
+	SlidingWindow sw(image, hogParams, 5, 0.9, 3, 0.5, svm, svm, svm, svm);
 	sw.GenerateBoundingBoxes();
-	sw.DrawBoundingBox(SlidingWindow::BodyPart::Hand, 3);
+	sw.DrawBoundingBox(SlidingWindow::BodyPart::Person, 3);
 	sw.Draw();
 
 	Utilities::DrawFlush();

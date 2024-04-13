@@ -324,7 +324,7 @@ HOG SlidingHOGExecutor::GetHOG(uint32_t flatIndex)
 	// index is converted to bloock coords for the detection window inside margin
 	Shape coords = Utilities::FlatToCoords(flatIndex, m_CurrentShape);
 
-	std::cout << "flatIndex = " << flatIndex << '\n';
+	//std::cout << "flatIndex = " << flatIndex << '\n';
 
 	//check this if statement
 	if (coords.x + m_Params.SlidingWindowSize > m_CurrentShape.x || coords.y + m_Params.SlidingWindowSize > m_CurrentShape.y)

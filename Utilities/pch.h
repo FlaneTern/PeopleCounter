@@ -11,6 +11,8 @@
 #include <fstream>
 #include <filesystem>
 #include <numeric>
+#include <set>
+#include <thread>
 
 #include <iostream> // debugging purposes, maybe delete later
 

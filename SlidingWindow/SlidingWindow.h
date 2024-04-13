@@ -20,6 +20,7 @@ typedef BoundingBox HeadBoundingBox;
 typedef BoundingBox HandBoundingBox;
 typedef BoundingBox TorsoBoundingBox;
 typedef BoundingBox LegBoundingBox;
+typedef BoundingBox PersonBoundingBox;
 
 class SlidingWindow
 {
@@ -30,7 +31,8 @@ public:
 		Head = 0,
 		Hand = 1,
 		Torso = 2,
-		Leg = 3
+		Leg = 3,
+		Person = 4
 	};
 
 	SlidingWindow(
@@ -65,6 +67,7 @@ private:
 	std::vector<HandBoundingBox> m_HandBoundingBoxes;
 	std::vector<TorsoBoundingBox> m_TorsoBoundingBoxes;
 	std::vector<LegBoundingBox> m_LegBoundingBoxes;
+	std::vector<PersonBoundingBox> m_PersonBoundingBoxes;
 
 	uint32_t m_Gamma;
 	double m_IoUThreshold;
@@ -75,6 +78,7 @@ private:
 	Image m_DrawImage;
 
 	void MergeBoundingBoxes();
+	void AssemblePeopleBoundingBoxes();
 
 
 

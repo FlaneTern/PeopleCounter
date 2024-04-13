@@ -5,6 +5,197 @@
 
 #include "SlidingWindow.h"
 
+struct Assemble
+{
+	int Index1;
+	int Index2;
+	double Distance;
+};
+
+struct DisjointSet
+{
+	int Index;
+	int Root;
+};
+
+static std::vector<Assemble> ComputeBodyPartDistances(const std::vector<BoundingBox>& bodyPart1, const std::vector<BoundingBox>& bodyPart2)
+{
+	std::vector<Assemble> assembler;
+	assembler.reserve(bodyPart1.size() * bodyPart2.size());
+
+	for (int i = 0; i < bodyPart1.size(); i++)
+	{
+		//double closestDistance = std::numeric_limits<double>::max();
+
+		double xCenterHead = bodyPart1[i].XAnchor + bodyPart1[i].XSize - 1;
+		double yCenterHead = bodyPart1[i].YAnchor + bodyPart1[i].YSize - 1;
+
+		for (int j = 0; j < bodyPart2.size(); j++)
+		{
+			double xCenterTorso = bodyPart2[j].XAnchor + bodyPart2[j].XSize - 1;
+			double yCenterTorso = bodyPart2[j].YAnchor + bodyPart2[j].YSize - 1;
+
+			double currentDistance = (xCenterHead - xCenterTorso) * (xCenterHead - xCenterTorso) + (yCenterHead - yCenterTorso) * (yCenterHead - yCenterTorso);
+
+			assembler.push_back({ i, j, currentDistance });
+		}
+	}
+
+	for (int i = 0; i < assembler.size(); i++)
+		std::sort(assembler.begin(), assembler.end(), [](const Assemble& a, const Assemble& b) {return a.Distance > b.Distance; });
+
+	return assembler;
+}
+
+// 1 must be torso coz scale threshold
+static std::vector<Assemble> AttachBodyParts(const std::vector<BoundingBox>& bodyPart1, const std::vector<BoundingBox>& bodyPart2, int maxAttachedTo1, int maxAttachedTo2)
+{
+	static constexpr double s_FarThreshold = 2.0;
+
+
+	std::vector<Assemble> assembler = ComputeBodyPartDistances(bodyPart1, bodyPart2);
+
+	std::vector<int> bodyPart1Counter(bodyPart1.size(), maxAttachedTo1);
+	std::vector<int> bodyPart2Counter(bodyPart2.size(), maxAttachedTo2);
+
+	for (int i = 0; i < assembler.size(); i++)
+	{
+		if (assembler[i].Distance > s_FarThreshold * bodyPart1[assembler[i].Index1].XSize)
+		{
+			assembler.erase(assembler.begin() + i);
+			i--;
+		}
+	}
+
+
+	for (int i = 0; i < assembler.size(); i++)
+	{
+		int bodyPart1Index = assembler[i].Index1;
+		int bodyPart2Index = assembler[i].Index2;
+
+		bodyPart1Counter[bodyPart1Index]--;
+		bodyPart2Counter[bodyPart2Index]--;
+
+		for (int j = i + 1; j < assembler.size(); j++)
+		{
+			if ((assembler[j].Index1 == bodyPart1Index && bodyPart1Counter[bodyPart1Index] <= 0) ||
+				(assembler[j].Index2 == bodyPart2Index && bodyPart2Counter[bodyPart2Index] <= 0))
+			{
+				assembler.erase(assembler.begin() + j);
+				j--;
+				continue;
+			}
+
+			if (assembler[j].Index1 == bodyPart1Index)
+				bodyPart1Counter[bodyPart1Index]--;
+
+			if (assembler[j].Index2 == bodyPart2Index)
+				bodyPart2Counter[bodyPart2Index]--;
+		}
+	}
+
+	return assembler;
+}
+
+static std::vector<Assemble> AttachBodyParts(const std::vector<BoundingBox>& bodyPart1, const std::vector<BoundingBox>& bodyPart2, int maxAttachedTo1, int maxAttachedTo2, std::vector<bool> isAttached1, std::vector<bool> isAttached2)
+{
+	static constexpr double s_FarThreshold = 2.0;
+
+
+	std::vector<Assemble> assembler = ComputeBodyPartDistances(bodyPart1, bodyPart2);
+
+	std::vector<int> bodyPart1Counter(bodyPart1.size(), maxAttachedTo1);
+	std::vector<int> bodyPart2Counter(bodyPart2.size(), maxAttachedTo2);
+
+	for (int i = 0; i < assembler.size(); i++)
+	{
+		if (assembler[i].Distance > s_FarThreshold * bodyPart1[assembler[i].Index1].XSize || 
+			isAttached1[assembler[i].Index1] || isAttached1[assembler[i].Index2])
+		{
+			assembler.erase(assembler.begin() + i);
+			i--;
+		}
+	}
+
+
+	for (int i = 0; i < assembler.size(); i++)
+	{
+		int bodyPart1Index = assembler[i].Index1;
+		int bodyPart2Index = assembler[i].Index2;
+
+		bodyPart1Counter[bodyPart1Index]--;
+		bodyPart2Counter[bodyPart2Index]--;
+
+		for (int j = i + 1; j < assembler.size(); j++)
+		{
+			if ((assembler[j].Index1 == bodyPart1Index && bodyPart1Counter[bodyPart1Index] <= 0) ||
+				(assembler[j].Index2 == bodyPart2Index && bodyPart2Counter[bodyPart2Index] <= 0))
+			{
+				assembler.erase(assembler.begin() + j);
+				j--;
+				continue;
+			}
+
+			if (assembler[j].Index1 == bodyPart1Index)
+				bodyPart1Counter[bodyPart1Index]--;
+
+			if (assembler[j].Index2 == bodyPart2Index)
+				bodyPart2Counter[bodyPart2Index]--;
+		}
+	}
+
+	return assembler;
+}
+
+static std::vector<Assemble> AttachBodyPartsSame(const std::vector<BoundingBox>& bodyPart, int maxAttachedTo, std::vector<bool> isAttached)
+{
+	static constexpr double s_FarThreshold = 2.0;
+
+	std::vector<Assemble> assembler = ComputeBodyPartDistances(bodyPart, bodyPart);
+
+	std::vector<int> bodyPartCounter(bodyPart.size(), maxAttachedTo);
+
+	for (int i = 0; i < assembler.size(); i++)
+	{
+		if (assembler[i].Distance > s_FarThreshold * bodyPart[assembler[i].Index1].XSize ||
+			isAttached[assembler[i].Index1] || isAttached[assembler[i].Index2] ||
+			assembler[i].Index1 == assembler[i].Index2)
+		{
+			assembler.erase(assembler.begin() + i);
+			i--;
+		}
+	}
+
+
+	for (int i = 0; i < assembler.size(); i++)
+	{
+		int bodyPart1Index = assembler[i].Index1;
+		int bodyPart2Index = assembler[i].Index2;
+
+		bodyPartCounter[bodyPart1Index]--;
+		bodyPartCounter[bodyPart2Index]--;
+
+		for (int j = i + 1; j < assembler.size(); j++)
+		{
+			if ((assembler[j].Index1 == bodyPart1Index && bodyPartCounter[bodyPart1Index] <= 0) ||
+				(assembler[j].Index2 == bodyPart2Index && bodyPartCounter[bodyPart2Index] <= 0))
+			{
+				assembler.erase(assembler.begin() + j);
+				j--;
+				continue;
+			}
+
+			if (assembler[j].Index1 == bodyPart1Index)
+				bodyPartCounter[bodyPart1Index]--;
+
+			if (assembler[j].Index2 == bodyPart2Index)
+				bodyPartCounter[bodyPart2Index]--;
+		}
+	}
+
+	return assembler;
+}
+
 static double ComputeIoU(BoundingBox bb1, BoundingBox bb2)
 {
 	double xLeft = std::max(bb1.XAnchor, bb2.XAnchor);
@@ -22,6 +213,8 @@ static double ComputeIoU(BoundingBox bb1, BoundingBox bb2)
 
 #define HELPER(BODYPART, ITEM) m_##BODYPART##ITEM
 #define HELPER2(BODYPART, ITEM) BODYPART##ITEM
+#define HELPER3(BODYPART) BODYPART##Offset
+#define HELPER4(ASSEMBLE) ASSEMBLE
 
 SlidingWindow::SlidingWindow(
 	Image image,
@@ -46,6 +239,8 @@ void SlidingWindow::GenerateBoundingBoxes()
 	HOGParameter::Parameters hogParams = m_SHE.GetParams();
 	Shape originalImageShape = m_Image.GetShape();
 
+	std::cout << "Prediction starting !";
+
 	while (m_SHE.GetShape().x >= hogParams.SlidingWindowSize && m_SHE.GetShape().y >= hogParams.SlidingWindowSize)
 	{
 		m_SHE.ResetHOGGetterIndex();
@@ -61,11 +256,18 @@ void SlidingWindow::GenerateBoundingBoxes()
 			1
 		};
 
+		std::thread headThread;
+		std::thread handThread;
+		std::thread torsoThread;
+		std::thread legThread;
+
 		do
 		{
 			std::vector<double> hog = m_SHE.GetHOG(currentIndex).m_HOG;
 			m_SHE.AdvanceHOGGetterIndex();
 			currentIndex = m_SHE.GetCurrentHOGGetterIndex();
+
+			Shape coords = m_SHE.GetCurrentHOGGetterIndexCoords();
 
 
 #define PREDICTANDGENERATEBOUNDINGBOX(BODYPART)													   \
@@ -88,19 +290,32 @@ void SlidingWindow::GenerateBoundingBoxes()
 					});																			   \
 			}
 
-			PREDICTANDGENERATEBOUNDINGBOX(Head);
-			PREDICTANDGENERATEBOUNDINGBOX(Hand);
-			PREDICTANDGENERATEBOUNDINGBOX(Torso);
-			PREDICTANDGENERATEBOUNDINGBOX(Leg);
+			
+			headThread = std::thread([&]() {PREDICTANDGENERATEBOUNDINGBOX(Head)});
+			handThread = std::thread([&]() {PREDICTANDGENERATEBOUNDINGBOX(Hand)});
+			torsoThread = std::thread([&]() {PREDICTANDGENERATEBOUNDINGBOX(Torso)});
+			legThread = std::thread([&]() {PREDICTANDGENERATEBOUNDINGBOX(Leg)});
+
+			headThread.join();
+			handThread.join();
+			torsoThread.join();
+			legThread.join();
+
 
 
 		} while (currentIndex != 0);
 
+
+
 		m_SHE = SlidingHOGExecutor(m_SHE, m_Scale);
 	}
+	std::cout << "Prediction done !";
 
+	std::cout << "BoundingBox Count Before Merge (NMS) = " << m_TorsoBoundingBoxes.size() + m_HeadBoundingBoxes.size() + m_HandBoundingBoxes.size() + m_LegBoundingBoxes.size() << '\n';
 	MergeBoundingBoxes();
-	std::cout << "BBS = " << m_HandBoundingBoxes.size() << '\n';
+	std::cout << "BoundingBox Count After Merge (NMS) = " << m_TorsoBoundingBoxes.size() + m_HeadBoundingBoxes.size() + m_HandBoundingBoxes.size() + m_LegBoundingBoxes.size() << '\n';
+	AssemblePeopleBoundingBoxes();
+	std::cout << "BoundingBox Count (People Count) = " << m_PersonBoundingBoxes.size() << '\n';
 }
 
 void SlidingWindow::MergeBoundingBoxes()
@@ -148,6 +363,176 @@ void SlidingWindow::MergeBoundingBoxes()
 
 }
 
+void SlidingWindow::AssemblePeopleBoundingBoxes()
+{
+	// index 1 = torso, index 2 = head
+	std::vector<Assemble> headToTorso = AttachBodyParts(m_TorsoBoundingBoxes, m_HeadBoundingBoxes, 1, 1);
+	// index 1 = torso, index 2 = hand
+	std::vector<Assemble> handToTorso = AttachBodyParts(m_TorsoBoundingBoxes, m_HandBoundingBoxes, 2, 1);
+	// index 1 = torso, index 2 = leg
+	std::vector<Assemble> legToTorso = AttachBodyParts(m_TorsoBoundingBoxes, m_LegBoundingBoxes, 2, 1);
+
+	std::vector<bool> isHeadTorsoLess(m_HeadBoundingBoxes.size(), true);
+	for (int i = 0; i < headToTorso.size(); i++)
+		isHeadTorsoLess[headToTorso[i].Index2] = false;
+
+	std::vector<bool> isHandTorsoLess(m_HandBoundingBoxes.size(), true);
+	for (int i = 0; i < handToTorso.size(); i++)
+		isHandTorsoLess[handToTorso[i].Index2] = false;
+
+	std::vector<bool> isLegTorsoLess(m_LegBoundingBoxes.size(), true);
+	for (int i = 0; i < legToTorso.size(); i++)
+		isLegTorsoLess[legToTorso[i].Index2] = false;
+
+	// index 1 = head, index 2 = hand
+	std::vector<Assemble> torsoLessHeadToTorsoLessHand = AttachBodyParts(m_HeadBoundingBoxes, m_HandBoundingBoxes, 1, 2,
+		isHeadTorsoLess, isHandTorsoLess);
+
+	// index 1 = head, index 2 = leg
+	std::vector<Assemble> torsoLessHeadToTorsoLessLeg = AttachBodyParts(m_HeadBoundingBoxes, m_LegBoundingBoxes, 1, 2,
+		isHeadTorsoLess, isLegTorsoLess);
+	
+	// below is danger territory
+	// below is danger territory
+	// below is danger territory
+	// below is danger territory
+	// below is danger territory
+
+	std::vector<bool> isHand_TorsoHeadLess(m_HandBoundingBoxes.size(), true);
+	for (int i = 0; i < handToTorso.size(); i++)
+		isHand_TorsoHeadLess[handToTorso[i].Index2] = false;
+	for (int i = 0; i < torsoLessHeadToTorsoLessHand.size(); i++)
+		isHand_TorsoHeadLess[torsoLessHeadToTorsoLessHand[i].Index2] = false;
+
+	// index 1 = hand, index 2 = hand
+	std::vector<Assemble> torsoHeadLess_Hand_To_TorsoHeadLess_Hand = AttachBodyPartsSame(m_HandBoundingBoxes, 1, isHand_TorsoHeadLess);
+
+	std::vector<bool> isLeg_TorsoHeadLess(m_LegBoundingBoxes.size(), true);
+	for (int i = 0; i < legToTorso.size(); i++)
+		isLeg_TorsoHeadLess[legToTorso[i].Index2] = false;
+	for (int i = 0; i < torsoLessHeadToTorsoLessLeg.size(); i++)
+		isLeg_TorsoHeadLess[torsoLessHeadToTorsoLessLeg[i].Index2] = false;
+
+	// index 1 = leg, index 2 = leg
+	std::vector<Assemble> torsoHeadLess_Leg_To_TorsoHeadLess_Leg = AttachBodyPartsSame(m_LegBoundingBoxes, 1, isLeg_TorsoHeadLess);
+
+
+	// TODO : STEP 6
+
+
+
+	// assembling
+	// body part index offset : Torso -> Head -> Hand -> Leg
+	int torsoOffset = 0;
+	int headOffset = m_TorsoBoundingBoxes.size();
+	int handOffset = m_TorsoBoundingBoxes.size() + m_HeadBoundingBoxes.size();
+	int legOffset = m_TorsoBoundingBoxes.size() + m_HeadBoundingBoxes.size() + m_HandBoundingBoxes.size();
+
+#define ADDOFFSET(ASSEMBLE, BODYPART1, BODYPART2)		\
+	for (int i = 0; i < HELPER4(ASSEMBLE).size(); i++) 	\
+	{													\
+		ASSEMBLE[i].Index1 += HELPER3(BODYPART1);		\
+		ASSEMBLE[i].Index2 += HELPER3(BODYPART2);		\
+	}
+
+	ADDOFFSET(headToTorso, torso, head);
+	ADDOFFSET(handToTorso, torso, hand);
+	ADDOFFSET(legToTorso, torso, leg);
+	ADDOFFSET(torsoLessHeadToTorsoLessHand, head, hand);
+	ADDOFFSET(torsoLessHeadToTorsoLessLeg, head, leg);
+	ADDOFFSET(torsoHeadLess_Hand_To_TorsoHeadLess_Hand, hand, hand);
+	ADDOFFSET(torsoHeadLess_Leg_To_TorsoHeadLess_Leg, leg, leg);
+
+
+	std::vector<DisjointSet> disjointSet;
+	disjointSet.reserve(m_TorsoBoundingBoxes.size() + m_HeadBoundingBoxes.size() + m_HandBoundingBoxes.size() + m_LegBoundingBoxes.size());
+	for (int i = 0; i < m_TorsoBoundingBoxes.size() + m_HeadBoundingBoxes.size() + m_HandBoundingBoxes.size() + m_LegBoundingBoxes.size(); i++)
+		disjointSet.push_back({ i, i });
+
+#define MERGE(ASSEMBLE, INDEX1OFFSET, INDEX2OFFSET)																	  \
+	for (int i = 0; i < HELPER4(ASSEMBLE).size(); i++)																	  \
+		disjointSet[HELPER4(ASSEMBLE)[i].Index2].Root = disjointSet[HELPER4(ASSEMBLE)[i].Index1].Root;
+
+	//for (int i = 0; i < headToTorso.size(); i++)
+	//	disjointSet[headToTorso[i].Index2 + headOffset].Root = disjointSet[headToTorso[i].Index1 + torsoOffset].Root;
+
+	MERGE(headToTorso, torso, head);
+	MERGE(handToTorso, torso, hand);
+	MERGE(legToTorso, torso, leg);
+	MERGE(torsoLessHeadToTorsoLessHand, head, hand);
+	MERGE(torsoLessHeadToTorsoLessLeg, head, leg);
+	MERGE(torsoHeadLess_Hand_To_TorsoHeadLess_Hand, hand, hand);
+	MERGE(torsoHeadLess_Leg_To_TorsoHeadLess_Leg, leg, leg);
+
+	std::sort(disjointSet.begin(), disjointSet.end(), [](const DisjointSet& a, const DisjointSet& b) {return a.Root < b.Root; });
+
+	for (int i = 0; i < disjointSet.size();)
+	{
+		int j = i;
+		while (j < disjointSet.size() && disjointSet[j].Root == disjointSet[i].Root)
+			j++;
+		j--;
+
+
+		int xMin = INT_MAX;
+		int yMin = INT_MAX;
+
+		int xMax = INT_MIN + 1;
+		int yMax = INT_MIN + 1;
+
+		for (int k = i; k <= j; k++)
+		{
+
+#define GETMINMAX(BODYPART, BODYPARTSMALL)																		 						 \
+			{																					 						 \
+				if ((int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].XAnchor < xMin)													 \
+					xMin = (int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].XAnchor;													 \
+				if ((int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].YAnchor < yMin)													 \
+					yMin = (int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].YAnchor;													 \
+				if ((int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].XAnchor + (int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].XSize - 1 > xMax)	 \
+					xMax = (int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].XAnchor + (int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].XSize - 1;	 \
+				if ((int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].YAnchor + (int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].YSize - 1 > yMax)	 \
+					yMax = (int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].YAnchor + (int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].YSize - 1;	 \
+			}
+			//{
+			//	if(m_TorsoBoundingBoxes[k].XAnchor < xMin)
+			//		xMin = m_TorsoBoundingBoxes[k].XAnchor;
+			//	if(m_TorsoBoundingBoxes[k].YAnchor < yMin)
+			//		yMin = m_TorsoBoundingBoxes[k].YAnchor;
+			//	if (m_TorsoBoundingBoxes[k].XAnchor + m_TorsoBoundingBoxes[k].XSize - 1 > xMax)
+			//		xMax = m_TorsoBoundingBoxes[k].XAnchor + m_TorsoBoundingBoxes[k].XSize - 1;
+			//	if (m_TorsoBoundingBoxes[k].YAnchor + m_TorsoBoundingBoxes[k].YSize - 1 > yMax)
+			//		yMax = m_TorsoBoundingBoxes[k].YAnchor + m_TorsoBoundingBoxes[k].YSize - 1;
+			//}
+
+
+			if (k < headOffset)
+				GETMINMAX(Torso, torso)
+				//{
+				//	if(m_TorsoBoundingBoxes[k].XAnchor < xMin)
+				//		xMin = m_TorsoBoundingBoxes[k].XAnchor;
+				//	if(m_TorsoBoundingBoxes[k].YAnchor < yMin)
+				//		yMin = m_TorsoBoundingBoxes[k].YAnchor;
+				//	if (m_TorsoBoundingBoxes[k].XAnchor + (int)m_TorsoBoundingBoxes[k].XSize - 1 > xMax)
+				//		xMax = m_TorsoBoundingBoxes[k].XAnchor + m_TorsoBoundingBoxes[k].XSize - 1;
+				//	if ((int)m_TorsoBoundingBoxes[k].YAnchor + (int)m_TorsoBoundingBoxes[k].YSize - 1 > yMax)
+				//		yMax = m_TorsoBoundingBoxes[k].YAnchor + m_TorsoBoundingBoxes[k].YSize - 1;
+				//}
+			else if (k < handOffset)
+				GETMINMAX(Head, head)
+			else if (k < legOffset)
+				GETMINMAX(Hand, hand)
+			else 
+				GETMINMAX(Leg, leg)
+		}
+
+		m_PersonBoundingBoxes.push_back({ (uint32_t)xMin, (uint32_t)yMin, (uint32_t)(xMax - xMin + 1), (uint32_t)(yMax - yMin + 1), -1 });
+		i = j + 1;
+	}
+
+}
+
+
 void SlidingWindow::DrawBoundingBox(BodyPart bodyPart, uint32_t thickness)
 {
 	std::vector<double> pixels = m_Image.GetPixels();
@@ -156,7 +541,8 @@ void SlidingWindow::DrawBoundingBox(BodyPart bodyPart, uint32_t thickness)
 	static constexpr double HandBoundingBoxColor[] = { 0, 0, 255 };
 	static constexpr double HeadBoundingBoxColor[] = { 0, 255, 0 };
 	static constexpr double TorsoBoundingBoxColor[] = { 255, 0, 0 };
-	static constexpr double LegBoundingBoxColor[] = { 255, 255, 255 };
+	static constexpr double LegBoundingBoxColor[] = { 0, 0, 0 };
+	static constexpr double PersonBoundingBoxColor[] = { 255, 255, 255 };
 
 
 #define DRAWBOUNDINGBOXES(BODYPART)																																												  \
@@ -213,6 +599,7 @@ void SlidingWindow::DrawBoundingBox(BodyPart bodyPart, uint32_t thickness)
 	if(bodyPart == BodyPart::Hand) { DRAWBOUNDINGBOXES(Hand) }
 	if(bodyPart == BodyPart::Torso) { DRAWBOUNDINGBOXES(Torso) }
 	if(bodyPart == BodyPart::Leg) { DRAWBOUNDINGBOXES(Leg) }
+	if(bodyPart == BodyPart::Person) { DRAWBOUNDINGBOXES(Person) }
 
 	m_DrawImage = Image(pixels, shape, m_Image.GetName());
 }

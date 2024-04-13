@@ -84,6 +84,8 @@ namespace Utilities
 	void DrawFlush()
 	{
 		cv::waitKey(0);
+		cv::destroyAllWindows();
+
 	}
 
 	std::string ParseName(std::string path)

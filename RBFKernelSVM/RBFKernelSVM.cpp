@@ -174,10 +174,10 @@ void RBFKernelSVM::Train(const Dataset& data, double regularizationParameterC, u
 	m_Bias /= (double)onMarginCount;
 
 	std::cout << "Finished Training";
-
+	
 }
 
-double RBFKernelSVM::Predict(std::vector<double> features)
+double RBFKernelSVM::Predict(std::vector<double> features) const
 {
 	double result = 0.0;
 
@@ -198,14 +198,14 @@ void RBFKernelSVM::Log()
 	for (int i = 0; i < m_LagrangeMultipliers.size(); i++)
 		std::cout << "\tLagrange Multiplier " << i << " = " << m_LagrangeMultipliers[i] << '\n';
 
-	std::cout << "Dataset X :\n";
-	for (int i = 0; i < 1; i++)
-	{
-		std::cout << "\tX " << i << " = { ";
-		for (int j = 0; j < m_Dataset.Features[i].size(); j++)
-			std::cout << m_Dataset.Features[i][j] << ", ";
-		std::cout << " }\n";
-	}
+	//std::cout << "Dataset X :\n";
+	//for (int i = 0; i < 1; i++)
+	//{
+	//	std::cout << "\tX " << i << " = { ";
+	//	for (int j = 0; j < m_Dataset.Features[i].size(); j++)
+	//		std::cout << m_Dataset.Features[i][j] << ", ";
+	//	std::cout << " }\n";
+	//}
 
 	std::cout << "Dataset Y :\n";
 	for (int i = 0; i < m_Dataset.Labels.size(); i++)
