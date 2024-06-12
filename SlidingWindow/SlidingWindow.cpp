@@ -28,7 +28,6 @@ static std::vector<Assemble> ComputeBodyPartDistances(const std::vector<Bounding
 
 	for (int i = 0; i < bodyPart1.size(); i++)
 	{
-		//double closestDistance = std::numeric_limits<double>::max();
 
 		double xCenterHead = bodyPart1[i].XAnchor + bodyPart1[i].XSize - 1;
 		double yCenterHead = bodyPart1[i].YAnchor + bodyPart1[i].YSize - 1;

@@ -68,7 +68,6 @@ SingleHOGExecutor::SingleHOGExecutor(Image image, HOGParameter::Parameters param
 
 
 
-// TODO
 HOG SingleHOGExecutor::GetHOG()
 {
 	HOG hog;
@@ -80,11 +79,8 @@ HOG SingleHOGExecutor::GetHOG()
 	for (int i = 0; i < m_Blocks.size(); i++)
 	{
 		std::copy(m_Blocks[i].m_HOG.begin(), m_Blocks[i].m_HOG.end(), hog.m_HOG.begin() + i * m_Params.BinCount * m_Params.BlockSize * m_Params.BlockSize);
-		//std::cout << "BLOCK HOG SIZE (SHOULD BE 36) = " << m_Blocks[i].m_HOG.size() << '\n';
 	}
 
-	//for (int i = 0; i < hog.m_HOG.size(); i++)
-	//	std::cout << hog.m_HOG[i] << ", ";
 
 	return hog;
 }
@@ -171,23 +167,9 @@ void SingleHOGExecutor::ConstructAndNormalizeBlocks()
 		}
 
 		HOG = m_Params.BlockNormalizationFn(HOG);
-
-
-
-		//for (int l = 0; l < HOG.size(); l++)
-		//	std::cout << HOG[l] << ", ";
-
-
-
-		//for (int l = 0; l < HOG.size(); l++)
-		//	std::cout << HOG[l] << ", ";
-
-		//std::cout << "here\n";
 		m_Blocks.push_back({ HOG });
-		//std::cout << "here2\n";
 	}
 
-	//std::cout << "BLOCKSSIZE = " << m_Blocks.size() << '\n';
 }
 
 
@@ -303,8 +285,6 @@ void SlidingHOGExecutor::ConstructAndNormalizeBlocks()
 			{
 				// check this index. index in gradients vs index in cells
 				int index = i - ((i / (m_CurrentShape.c * m_CurrentShape.x)) * (m_Params.CellSize - 1)) + k * m_Params.CellSize + (m_CurrentShape.x - m_Params.CellSize + 1) * j * m_Params.CellSize;// -((i / (m_CurrentShape.c * m_CurrentShape.x)) * (m_Params.CellSize - 1));
-				//std::cout << "index = " << index << ", flat index = " << m_Params.BinCount * k + m_Params.BinCount * m_Params.BlockSize * j << '\n';
-				//std::cout << "m_Cells.size() = " << m_Cells.size() << '\n';
 				std::copy(m_Cells[index].m_HOG.begin(), m_Cells[index].m_HOG.end(), HOG.begin() + m_Params.BinCount * k + m_Params.BinCount * m_Params.BlockSize * j);
 			}
 		}
@@ -315,7 +295,6 @@ void SlidingHOGExecutor::ConstructAndNormalizeBlocks()
 		m_Blocks.push_back({ HOG });
 	}
 
-	//std::cout << "BLOCKSSIZE = " << m_Blocks.size() << '\n';
 }
 
 HOG SlidingHOGExecutor::GetHOG(uint32_t flatIndex)
@@ -324,7 +303,6 @@ HOG SlidingHOGExecutor::GetHOG(uint32_t flatIndex)
 	// index is converted to bloock coords for the detection window inside margin
 	Shape coords = Utilities::FlatToCoords(flatIndex, m_CurrentShape);
 
-	//std::cout << "flatIndex = " << flatIndex << '\n';
 
 	//check this if statement
 	if (coords.x + m_Params.SlidingWindowSize > m_CurrentShape.x || coords.y + m_Params.SlidingWindowSize > m_CurrentShape.y)
@@ -349,7 +327,6 @@ HOG SlidingHOGExecutor::GetHOG(uint32_t flatIndex)
 		for (int k = 0; k < rowBlockCount; k++)
 		{
 			int index2 = index + k * m_Params.CellSize + j * m_Params.CellSize * (m_CurrentShape.x - m_Params.CellSize * m_Params.BlockSize + 1);
-			//std::cout << "index = " << index2 << ", flat index = " << (m_Params.BinCount * m_Params.BlockSize * m_Params.BlockSize) * (k + rowBlockCount * j) << '\n';
 			std::copy(m_Blocks[index2].m_HOG.begin(), m_Blocks[index2].m_HOG.end(), hog.m_HOG.begin() + (m_Params.BinCount * m_Params.BlockSize * m_Params.BlockSize) * (k + rowBlockCount * j));
 		}
 	}
@@ -379,28 +356,6 @@ std::vector<HOG> SlidingHOGExecutor::GetHOGs()
 		currentIndex = GetCurrentHOGGetterIndex();
 		count++;
 	} while (currentIndex != 0);
-
-
-#if 0
-	// i is coords for the detection window
-	// index is coords for the detection window inside margin
-	for (int i = 0; i < m_Gradients.size(); i += m_Stride)
-	{
-		Shape coords = Utilities::FlatToCoords(i, m_CurrentShape);
-		//check this if statement
-		if (coords.x + m_SlidingWindowSize > m_CurrentShape.x)
-		{
-			i = m_Stride * m_CurrentShape.x + m_CurrentShape.x * (i / m_CurrentShape.x) - m_Stride;
-			continue;
-		}
-		else if (coords.y + m_SlidingWindowSize > m_CurrentShape.y)
-		{
-			break;
-		}
-		std::cout << "i = " << i << '\n';
-		hogs.push_back(GetHOG(i));
-	}
-#endif
 
 	std::cout << "window count = " << hogs.size() << '\n';
 	std::cout << "hog feature count for each window = " << hogs[0].m_HOG.size();
