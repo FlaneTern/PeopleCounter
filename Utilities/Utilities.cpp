@@ -108,6 +108,21 @@ namespace Utilities
 		return name;
 	}
 
+	std::string ParsePath(std::string path)
+	{
+		std::string name = path;
+
+		size_t pos = path.find_last_of('/');
+		size_t pos2 = path.find_last_of('\\');
+		if (pos == std::string::npos || pos < pos2)
+			pos = pos2;
+
+		if (pos != std::string::npos)
+			name = name.substr(0, pos + 1);
+
+		return name;
+	}
+
 	Image Resize(Image image, uint32_t targetX, uint32_t targetY)
 	{
 		Shape sourceShape = image.GetShape();

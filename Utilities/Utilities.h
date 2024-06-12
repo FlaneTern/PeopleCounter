@@ -90,6 +90,7 @@ namespace Utilities
 	void DrawFlush();
 
 	std::string ParseName(std::string path);
+	std::string ParsePath(std::string path);
 
 	std::vector<std::string> GetFilesInDirectory(std::string directoryPath);
 
@@ -120,6 +121,7 @@ namespace Utilities
 	bool IsKeyPressed(KeyCode key);
 
 	std::string GetFile();
+	std::vector<std::string> GetFiles();
 
 	std::string ReadFileBinary(std::string path);
 

@@ -775,12 +775,12 @@ void SlidingWindow::Draw()
 	m_DrawImage.Draw();
 }
 
-void SlidingWindow::SaveDrawImage()
+void SlidingWindow::SaveDrawImage(std::string nameAppend, std::string directoryPath)
 {
-	m_DrawImage.Save("Prediction_Final/" + m_DrawImage.GetName() + "PredictedDrawPerson.png");
+	m_DrawImage.Save(directoryPath + m_DrawImage.GetName() + nameAppend + ".png");
 
-	std::ofstream out("Prediction_Final/" + m_DrawImage.GetName() + "PredictedDrawPerson.txt");
+	std::ofstream out(directoryPath + m_DrawImage.GetName() + nameAppend + ".txt");
 	out << m_PersonBoundingBoxes.size();
 
-	std::cout << "Saved " << m_DrawImage.GetName() << "\n--------------------------------------------------";
+	std::cout << "Saved " << m_DrawImage.GetName() << "\n--------------------------------------------------\n";
 }

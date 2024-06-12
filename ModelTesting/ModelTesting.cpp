@@ -216,15 +216,18 @@ int main()
 
 		APPLYTIMER(sw.GenerateBoundingBoxes(), GenerateBoundingBoxes, true);
 		
-		//sw->GenerateBoundingBoxes();
 		sw.DrawBoundingBox(SlidingWindow::BodyPart::Person, 3);
-		//sw.DrawBoundingBox(SlidingWindow::BodyPart::Torso, 3);
-		//sw.DrawBoundingBox(SlidingWindow::BodyPart::Head, 3);
-		//sw.DrawBoundingBox(SlidingWindow::BodyPart::Hand, 3);
-		//sw.DrawBoundingBox(SlidingWindow::BodyPart::Leg, 3);
+		sw.SaveDrawImage("PredictedDrawPerson");
+
+		sw.ClearDrawnBoundingBox();
+
+		sw.DrawBoundingBox(SlidingWindow::BodyPart::Torso, 3);
+		sw.DrawBoundingBox(SlidingWindow::BodyPart::Head, 3);
+		sw.DrawBoundingBox(SlidingWindow::BodyPart::Hand, 3);
+		sw.DrawBoundingBox(SlidingWindow::BodyPart::Leg, 3);
+		sw.SaveDrawImage("PredictedDrawAll");
 
 		//sw.Draw();
-		//sw.SaveDrawImage();
 		//Utilities::DrawFlush();
 
 	}

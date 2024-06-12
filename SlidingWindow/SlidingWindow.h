@@ -52,7 +52,7 @@ public:
 	void ClearDrawnBoundingBox();
 
 	void Draw();
-	void SaveDrawImage();
+	void SaveDrawImage(std::string nameAppend, std::string directoryPath = "Prediction_Final/");
 
 private:
 	Image m_Image;

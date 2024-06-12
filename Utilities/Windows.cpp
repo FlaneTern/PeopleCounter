@@ -243,4 +243,77 @@ namespace Utilities
         std::cout << strTo;
         return strTo;
     }
+
+    std::vector<std::string> GetFiles()
+    {
+        static bool isInitialized = false;
+
+        if (!isInitialized)
+        {
+            CoInitialize(NULL);
+            isInitialized = true;
+        }
+
+        std::wstringstream filePathStream;
+        std::vector<std::string> files;
+
+        // CoCreate the File Open Dialog object.
+        IFileOpenDialog* pfd = NULL;
+        HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pfd));
+        if (SUCCEEDED(hr))
+        {
+            // Set the options on the dialog.
+            DWORD dwFlags;
+            hr = pfd->GetOptions(&dwFlags);
+            if (SUCCEEDED(hr))
+            {
+                hr = pfd->SetOptions(dwFlags | FOS_FORCEFILESYSTEM | FOS_ALLOWMULTISELECT);
+                if (SUCCEEDED(hr))
+                {
+                    // Show the dialog
+                    hr = pfd->Show(NULL);
+                    if (SUCCEEDED(hr))
+                    {
+                        // Obtain the result
+                        IShellItemArray* psiaResults;
+                        hr = pfd->GetResults(&psiaResults);
+                        if (SUCCEEDED(hr))
+                        {
+                            DWORD itemCount = 0;
+                            hr = psiaResults->GetCount(&itemCount);
+                            if (SUCCEEDED(hr))
+                            {
+                                for (DWORD i = 0; i < itemCount; ++i)
+                                {
+                                    IShellItem* psiResult;
+                                    hr = psiaResults->GetItemAt(i, &psiResult);
+                                    if (SUCCEEDED(hr))
+                                    {
+                                        PWSTR pszFilePath = NULL;
+                                        hr = psiResult->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+                                        if (SUCCEEDED(hr))
+                                        {
+                                            filePathStream << pszFilePath << L"\n";
+
+                                            // Convert to std::string
+                                            std::wstring wstr = pszFilePath;
+                                            std::string str(wstr.begin(), wstr.end());
+                                            files.push_back(str);
+
+                                            CoTaskMemFree(pszFilePath);
+                                        }
+                                        psiResult->Release();
+                                    }
+                                }
+                            }
+                            psiaResults->Release();
+                        }
+                    }
+                }
+            }
+            pfd->Release();
+        }
+
+        return files;
+    }
 }
