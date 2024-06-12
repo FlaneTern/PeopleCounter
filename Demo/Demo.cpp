@@ -6,15 +6,15 @@
 
 int main()
 {
-
+	std::cout << "Loading Models...\n";
 	RBFKernelSVM headClassifier = RBFKernelSVM::Load("Model/Head_Classifier");
 	RBFKernelSVM handClassifier = RBFKernelSVM::Load("Model/Hand_Classifier");
 	RBFKernelSVM torsoClassifier = RBFKernelSVM::Load("Model/Torso_Classifier");
 	RBFKernelSVM legClassifier = RBFKernelSVM::Load("Model/Leg_Classifier");
-	headClassifier.Log();
-	handClassifier.Log();
-	torsoClassifier.Log();
-	legClassifier.Log();
+	//headClassifier.Log();
+	//handClassifier.Log();
+	//torsoClassifier.Log();
+	//legClassifier.Log();
 
 	HOGParameter::Parameters hogParams =
 	{
@@ -41,7 +41,7 @@ int main()
 		if (!printedReady)
 		{
 			printedReady = true;
-			std::cout << "Ready!\n";
+			std::cout << "\n\nReady!\n---------------------------------\n";
 		}
 
 		if (Utilities::IsKeyPressed(Utilities::KeyCode::Enter))
@@ -55,7 +55,8 @@ int main()
 				Image image = Image::LoadImage(path);
 				image = Utilities::Resize(image, 1600, 1200);
 
-				std::cout << "parsepath = " << Utilities::ParsePath(path) << '\n';
+				std::cout << "Path = " << Utilities::ParsePath(path) << '\n';
+				std::cout << "Image Name = " << image.GetName() << '\n';
 
 				sw = new SlidingWindow(image, hogParams, 100, 0.9, 2, 0.2, 
 					headClassifier, handClassifier, torsoClassifier, legClassifier);
@@ -77,8 +78,9 @@ int main()
 				//Utilities::DrawFlush();
 				sw->SaveDrawImage("PredictedDrawAll", Utilities::ParsePath(path));
 
-
 				delete sw;
+
+				std::cout << '\n';
 			}
 
 			printedReady = false;

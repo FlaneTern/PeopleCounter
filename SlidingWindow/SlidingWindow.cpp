@@ -240,7 +240,7 @@ void SlidingWindow::GenerateBoundingBoxes()
 	HOGParameter::Parameters hogParams = m_SHE.GetParams();
 	Shape originalImageShape = m_Image.GetShape();
 
-	std::cout << "Prediction starting !";
+	std::cout << "Prediction starting!\n";
 
 	int currentResizeIteration = 1;
 	while (m_SHE.GetShape().x >= hogParams.SlidingWindowSize && m_SHE.GetShape().y >= hogParams.SlidingWindowSize && currentResizeIteration < 11)
@@ -274,11 +274,7 @@ void SlidingWindow::GenerateBoundingBoxes()
 			Shape coords = m_SHE.GetCurrentHOGGetterIndexCoords();
 
 			currentIteration++;
-			std::cout << "currentIndex = " << currentIndex << '\n';
-			std::cout << "Prediction " << currentIteration << " Out of " << std::ceil((double)(m_SHE.GetShape().x - hogParams.SlidingWindowSize + 1) / m_SHE.GetStride()) * std::ceil((double)(m_SHE.GetShape().y - hogParams.SlidingWindowSize + 1) / m_SHE.GetStride()) << '\n';
 
-
-#if 1
 #define PREDICTANDGENERATEBOUNDINGBOX(BODYPART)													   \
 			double HELPER(BODYPART, Score) = HELPER(BODYPART, Classifier).Predict(hog);			   \
 			/*std::cout << "Prediction Score = " << HELPER(BODYPART, Score) << '\n';*/			   \
@@ -311,33 +307,7 @@ void SlidingWindow::GenerateBoundingBoxes()
 			torsoThread.join();
 			handThread.join();
 			legThread.join();
-#else
-#define PREDICTANDGENERATEBOUNDINGBOX(BODYPART)													   \
-			double HELPER(BODYPART, Score) = HELPER(BODYPART, Classifier).PredictShader(hog);	   \
-			/*std::cout << "Prediction Score = " << HELPER(BODYPART, Score) << '\n';*/			   \
-			if (HELPER(BODYPART, Score) >= 0)													   \
-			{																					   \
-				Shape coords = m_SHE.GetCurrentHOGGetterIndexCoords();							   \
-																								   \
-				coords.x = (uint32_t)(coords.x * originalImageShape.x / (double)currentShape.x);   \
-				coords.y = (uint32_t)(coords.y * originalImageShape.y / (double)currentShape.y);   \
-																								   \
-				HELPER(BODYPART, BoundingBoxes).push_back(										   \
-					{																			   \
-						coords.x,																   \
-						coords.y,																   \
-						boundingBoxSize.x,														   \
-						boundingBoxSize.y,														   \
-						HELPER(BODYPART, Score)													   \
-					});																			   \
-			}
 
-			PREDICTANDGENERATEBOUNDINGBOX(Head);
-			PREDICTANDGENERATEBOUNDINGBOX(Hand);
-			PREDICTANDGENERATEBOUNDINGBOX(Torso);
-			PREDICTANDGENERATEBOUNDINGBOX(Leg);
-
-#endif
 
 
 
@@ -347,59 +317,19 @@ void SlidingWindow::GenerateBoundingBoxes()
 
 		m_SHE = SlidingHOGExecutor(m_SHE, m_Scale);
 	}
-	std::cout << "Prediction done !";
+	std::cout << "Prediction done!\n";
 
-	std::cout << "BoundingBox Count Before Merge (NMS) = " << m_TorsoBoundingBoxes.size() + m_HeadBoundingBoxes.size() + m_HandBoundingBoxes.size() + m_LegBoundingBoxes.size() << '\n';
+	//std::cout << "BoundingBox Count Before Merge (NMS) = " << m_TorsoBoundingBoxes.size() + m_HeadBoundingBoxes.size() + m_HandBoundingBoxes.size() + m_LegBoundingBoxes.size() << '\n';
 	MergeBoundingBoxes();
-	std::cout << "BoundingBox Count After Merge (NMS) = " << m_TorsoBoundingBoxes.size() + m_HeadBoundingBoxes.size() + m_HandBoundingBoxes.size() + m_LegBoundingBoxes.size() << '\n';
+	//std::cout << "BoundingBox Count After Merge (NMS) = " << m_TorsoBoundingBoxes.size() + m_HeadBoundingBoxes.size() + m_HandBoundingBoxes.size() + m_LegBoundingBoxes.size() << '\n';
 	AssemblePeopleBoundingBoxes();
-	std::cout << "BoundingBox Count (People Count) = " << m_PersonBoundingBoxes.size() << '\n';
+	//std::cout << "BoundingBox Count (People Count) = " << m_PersonBoundingBoxes.size() << '\n';
 	MergeBoundingBoxes();
-	std::cout << "BoundingBox Count (People Count) after merge again = " << m_PersonBoundingBoxes.size() << '\n';
+	//std::cout << "BoundingBox Count (People Count) after merge again = " << m_PersonBoundingBoxes.size() << '\n';
 }
 
 void SlidingWindow::MergeBoundingBoxes()
 {
-
-//#define MERGEBOUNDINGBOXES(BODYPART)							 \
-//	{															 \
-//		auto bbs = HELPER(BODYPART, BoundingBoxes);				 \
-//		HELPER(BODYPART, BoundingBoxes).clear();				 \
-//																 \
-//		while (!bbs.empty())									 \
-//		{														 \
-//			BoundingBox best;									 \
-//			best.Score = -1;									 \
-//																 \
-//			int bestIndex = -1;									 \
-//																 \
-//			for (int i = 0; i < bbs.size(); i++)				 \
-//			{													 \
-//				if (bbs[i].Score >= best.Score)					 \
-//				{												 \
-//					best = bbs[i];								 \
-//					bestIndex = i;								 \
-//				}												 \
-//			}													 \
-//																 \
-//			bbs.erase(bbs.begin() + bestIndex);					 \
-//			HELPER(BODYPART, BoundingBoxes).push_back(best);	 \
-//				 												 \
-//			for (int i = 0; i < bbs.size(); i++)				 \
-//			{													 \
-//				if (ComputeIoU(best, bbs[i]) >= m_IoUThreshold)	 \
-//				{												 \
-//					bbs.erase(bbs.begin() + i);					 \
-//					i--;										 \
-//				}												 \
-//			}													 \
-//		}														 \
-//	}
-//
-//	MERGEBOUNDINGBOXES(Head);
-//	MERGEBOUNDINGBOXES(Hand);
-//	MERGEBOUNDINGBOXES(Torso);
-//	MERGEBOUNDINGBOXES(Leg);
 
 	auto mergebb = [&](std::vector<BoundingBox>& input)
 	{
@@ -498,11 +428,6 @@ void SlidingWindow::AssemblePeopleBoundingBoxes()
 	// index 1 = leg, index 2 = leg
 	std::vector<Assemble> torsoHeadLess_Leg_To_TorsoHeadLess_Leg = AttachBodyPartsSame(m_LegBoundingBoxes, 1, isLeg_TorsoHeadLess);
 
-
-	// TODO : STEP 6
-
-
-
 	// assembling
 	// body part index offset : Torso -> Head -> Hand -> Leg
 	int torsoOffset = 0;
@@ -534,9 +459,6 @@ void SlidingWindow::AssemblePeopleBoundingBoxes()
 #define MERGE(ASSEMBLE, INDEX1OFFSET, INDEX2OFFSET)																	  \
 	for (int i = 0; i < HELPER4(ASSEMBLE).size(); i++)																	  \
 		disjointSet[HELPER4(ASSEMBLE)[i].Index2].Root = disjointSet[HELPER4(ASSEMBLE)[i].Index1].Root;
-
-	//for (int i = 0; i < headToTorso.size(); i++)
-	//	disjointSet[headToTorso[i].Index2 + headOffset].Root = disjointSet[headToTorso[i].Index1 + torsoOffset].Root;
 
 	MERGE(headToTorso, torso, head);
 	MERGE(handToTorso, torso, hand);
@@ -576,30 +498,9 @@ void SlidingWindow::AssemblePeopleBoundingBoxes()
 				if ((int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].YAnchor + (int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].YSize - 1 > yMax)	 \
 					yMax = (int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].YAnchor + (int)HELPER(BODYPART, BoundingBoxes)[k - HELPER3(BODYPARTSMALL)].YSize - 1;	 \
 			}
-			//{
-			//	if(m_TorsoBoundingBoxes[k].XAnchor < xMin)
-			//		xMin = m_TorsoBoundingBoxes[k].XAnchor;
-			//	if(m_TorsoBoundingBoxes[k].YAnchor < yMin)
-			//		yMin = m_TorsoBoundingBoxes[k].YAnchor;
-			//	if (m_TorsoBoundingBoxes[k].XAnchor + m_TorsoBoundingBoxes[k].XSize - 1 > xMax)
-			//		xMax = m_TorsoBoundingBoxes[k].XAnchor + m_TorsoBoundingBoxes[k].XSize - 1;
-			//	if (m_TorsoBoundingBoxes[k].YAnchor + m_TorsoBoundingBoxes[k].YSize - 1 > yMax)
-			//		yMax = m_TorsoBoundingBoxes[k].YAnchor + m_TorsoBoundingBoxes[k].YSize - 1;
-			//}
-
 
 			if (k < headOffset)
 				GETMINMAX(Torso, torso)
-				//{
-				//	if(m_TorsoBoundingBoxes[k].XAnchor < xMin)
-				//		xMin = m_TorsoBoundingBoxes[k].XAnchor;
-				//	if(m_TorsoBoundingBoxes[k].YAnchor < yMin)
-				//		yMin = m_TorsoBoundingBoxes[k].YAnchor;
-				//	if (m_TorsoBoundingBoxes[k].XAnchor + (int)m_TorsoBoundingBoxes[k].XSize - 1 > xMax)
-				//		xMax = m_TorsoBoundingBoxes[k].XAnchor + m_TorsoBoundingBoxes[k].XSize - 1;
-				//	if ((int)m_TorsoBoundingBoxes[k].YAnchor + (int)m_TorsoBoundingBoxes[k].YSize - 1 > yMax)
-				//		yMax = m_TorsoBoundingBoxes[k].YAnchor + m_TorsoBoundingBoxes[k].YSize - 1;
-				//}
 			else if (k < handOffset)
 				GETMINMAX(Head, head)
 			else if (k < legOffset)
@@ -626,64 +527,6 @@ void SlidingWindow::DrawBoundingBox(BodyPart bodyPart, uint32_t thickness)
 	static constexpr double LegBoundingBoxColor[] = { 0, 0, 0 };
 	static constexpr double PersonBoundingBoxColor[] = { 255, 255, 255 };
 
-#if 0
-#define DRAWBOUNDINGBOXES(BODYPART)																																												  \
-	{																																																			  \
-		for (int i = 0; i < HELPER(BODYPART, BoundingBoxes).size(); i++)																																					  \
-		{																																																		  \
-			for (int j = HELPER(BODYPART, BoundingBoxes)[i].YAnchor; j < HELPER(BODYPART, BoundingBoxes)[i].YAnchor + HELPER(BODYPART, BoundingBoxes)[i].YSize - 1; j++)																			  \
-			{																																																	  \
-				for (int k = HELPER(BODYPART, BoundingBoxes)[i].XAnchor - (thickness / 2); k <= HELPER(BODYPART, BoundingBoxes)[i].XAnchor + (thickness / 2); k++)																		  \
-				{																																																  \
-					if (j >= 0 && j < shape.y && k >= 0 && k < shape.x)																																			  \
-					{																																															  \
-						int coords = Utilities::CoordsToFlat(k, j, 0, shape);																																	  \
-						memcpy(&pixels[coords], HELPER2(BODYPART, BoundingBoxColor), sizeof(HELPER2(BODYPART, BoundingBoxColor)));																											  \
-					}																																															  \
-				}																																																  \
-																																																				  \
-				for (int k = HELPER(BODYPART, BoundingBoxes)[i].XAnchor + HELPER(BODYPART, BoundingBoxes)[i].XSize - 1 - (thickness / 2); k <= HELPER(BODYPART, BoundingBoxes)[i].XAnchor + HELPER(BODYPART, BoundingBoxes)[i].XSize - 1 + (thickness / 2); k++)  \
-				{																																																  \
-					if (j >= 0 && j < shape.y && k >= 0 && k < shape.x)																																			  \
-					{																																															  \
-						int coords = Utilities::CoordsToFlat(k, j, 0, shape);																																	  \
-						memcpy(&pixels[coords], HELPER2(BODYPART, BoundingBoxColor), sizeof(HELPER2(BODYPART, BoundingBoxColor)));																											  \
-					}																																															  \
-				}																																																  \
-			}																																																	  \
-																																																				  \
-																																																				  \
-																																																				  \
-			for (int j = HELPER(BODYPART, BoundingBoxes)[i].XAnchor; j < HELPER(BODYPART, BoundingBoxes)[i].XAnchor + HELPER(BODYPART, BoundingBoxes)[i].XSize - 1; j++)																			  \
-			{																																																	  \
-				for (int k = HELPER(BODYPART, BoundingBoxes)[i].YAnchor - (thickness / 2); k <= HELPER(BODYPART, BoundingBoxes)[i].YAnchor + (thickness / 2); k++)																		  \
-				{																																																  \
-					if (j >= 0 && j < shape.x && k >= 0 && k < shape.y)																																			  \
-					{																																															  \
-						int coords = Utilities::CoordsToFlat(j, k, 0, shape);																																	  \
-						memcpy(&pixels[coords], HELPER2(BODYPART, BoundingBoxColor), sizeof(HELPER2(BODYPART, BoundingBoxColor)));																											  \
-					}																																															  \
-				}																																																  \
-																																																				  \
-				for (int k = HELPER(BODYPART, BoundingBoxes)[i].YAnchor + HELPER(BODYPART, BoundingBoxes)[i].YSize - 1 - (thickness / 2); k <= HELPER(BODYPART, BoundingBoxes)[i].YAnchor + HELPER(BODYPART, BoundingBoxes)[i].YSize - 1 + (thickness / 2); k++)  \
-				{																																																  \
-					if (j >= 0 && j < shape.x && k >= 0 && k < shape.y)																																			  \
-					{																																															  \
-						int coords = Utilities::CoordsToFlat(j, k, 0, shape);																																	  \
-						memcpy(&pixels[coords], HELPER2(BODYPART, BoundingBoxColor), sizeof(HELPER2(BODYPART, BoundingBoxColor)));																											  \
-					}																																															  \
-				}																																																  \
-			}																																																	  \
-		}																																																		  \
-	}
-
-	if(bodyPart == BodyPart::Head) { DRAWBOUNDINGBOXES(Head) }
-	if(bodyPart == BodyPart::Hand) { DRAWBOUNDINGBOXES(Hand) }
-	if(bodyPart == BodyPart::Torso) { DRAWBOUNDINGBOXES(Torso) }
-	if(bodyPart == BodyPart::Leg) { DRAWBOUNDINGBOXES(Leg) }
-	if(bodyPart == BodyPart::Person) { DRAWBOUNDINGBOXES(Person) }
-
-#endif
 	std::vector<BoundingBox> bbs;
 	double color[3];
 	if (bodyPart == BodyPart::Head)
@@ -771,7 +614,6 @@ void SlidingWindow::ClearDrawnBoundingBox()
 
 void SlidingWindow::Draw()
 {
-	//m_Image();
 	m_DrawImage.Draw();
 }
 
@@ -782,5 +624,5 @@ void SlidingWindow::SaveDrawImage(std::string nameAppend, std::string directoryP
 	std::ofstream out(directoryPath + m_DrawImage.GetName() + nameAppend + ".txt");
 	out << m_PersonBoundingBoxes.size();
 
-	std::cout << "Saved " << m_DrawImage.GetName() << "\n--------------------------------------------------\n";
+	std::cout << "Saved " << m_DrawImage.GetName() + nameAppend << "\n";
 }
