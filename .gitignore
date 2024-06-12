@@ -402,4 +402,13 @@ FodyWeavers.xsd
 ################################################
 *.lib
 *.dll
-WorkingDirectory/testing/*
+WorkingDirectory/Dataset/*
+WorkingDirectory/Dataset_Final/*
+WorkingDirectory/Dataset_Final - Old/*
+WorkingDirectory/Dataset_Preprocessed/*
+WorkingDirectory/Dataset_Preprocessed_Only/*
+WorkingDirectory/Model/*
+WorkingDirectory/Prediction_Final/*
+WorkingDirectory/Prediction_Final.zip
+Utilities/glad/*
+Utilities/glfw-3.4/

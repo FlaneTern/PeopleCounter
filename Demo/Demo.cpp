@@ -35,7 +35,7 @@ int main()
 				continue;
 
 			Image image = Image::LoadImage(path);
-			image = Utilities::Resize(image, 250, 250);
+			image = Utilities::Resize(image, 128, 128);
 
 			sw = new SlidingWindow(image, hogParams, 1, 0.9, 3, 0.5, svm, svm, svm, svm);
 

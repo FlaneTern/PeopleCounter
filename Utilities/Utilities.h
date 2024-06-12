@@ -121,5 +121,7 @@ namespace Utilities
 
 	std::string GetFile();
 
+	std::string ReadFileBinary(std::string path);
+
 }
 

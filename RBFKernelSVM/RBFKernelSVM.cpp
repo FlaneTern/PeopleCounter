@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "RBFKernelSVM.h"
 
+#include "Utilities.h"
+#include "Shader.h"
 
 static double RBFKernel(const std::vector<double>& x1, const std::vector<double>& x2, double gamma)
 {
@@ -8,8 +10,12 @@ static double RBFKernel(const std::vector<double>& x1, const std::vector<double>
 		throw std::runtime_error("DIFFERENT X1 AND X2 SIZE ON RBF KERNEL!");
 
 	double sum = 0.0;
+	double temp = 0.0;
 	for (int i = 0; i < x1.size(); i++)
-		sum += (x1[i] - x2[i]) * (x1[i] - x2[i]);
+	{
+		temp = x1[i] - x2[i];
+		sum += temp * temp;
+	}
 	sum = std::exp(-1 * gamma * sum);
 
 	return sum;
@@ -26,17 +32,7 @@ RBFKernelSVM::RBFKernelSVM(double kernelParameterGamma, double bias, std::vector
 
 RBFKernelSVM RBFKernelSVM::Load(std::string path)
 {
-	std::ifstream stream(path, std::ios::binary);
-	if (stream.fail())
-		throw std::runtime_error("gg");
-
-	std::streamsize fileSize = stream.tellg();
-	stream.seekg(0, std::ios::end);
-	fileSize = stream.tellg() - fileSize;
-	stream.seekg(0, std::ios::beg);
-
-	std::string temp(fileSize, '0');
-	stream.read(&temp[0], fileSize);
+	std::string temp = Utilities::ReadFileBinary(path);
 
 	uint64_t currentPos = temp.find('\0');
 
@@ -179,11 +175,34 @@ void RBFKernelSVM::Train(const Dataset& data, double regularizationParameterC, u
 
 double RBFKernelSVM::Predict(std::vector<double> features) const
 {
-	double result = 0.0;
+	double result = m_Bias;
 
 	for (int i = 0; i < m_LagrangeMultipliers.size(); i++)
 		result += m_LagrangeMultipliers[i] * m_Dataset.Labels[i] * RBFKernel(m_Dataset.Features[i], features, m_KernelParameterGamma);
-	result += m_Bias;
+
+	return result;
+}
+
+double RBFKernelSVM::PredictShader(std::vector<double> features) const
+{
+	double result = m_Bias;
+
+	std::vector<double> diff = Shader::DispatchComputeShader(m_ProgramID, (Shader::SSBOIndex)m_InputSSBOIndex, features, m_LagrangeMultipliers.size());
+
+	for (int i = 0; i < m_LagrangeMultipliers.size(); i++)
+		result += m_LagrangeMultipliers[i] * m_Dataset.Labels[i] * std::exp(-1 * m_KernelParameterGamma * diff[i]);
+
+	return result;
+}
+
+double RBFKernelSVM::PredictShader(std::vector<double> features, unsigned int programID, unsigned int inputSSBOIndex) const
+{
+	double result = m_Bias;
+
+	std::vector<double> diff = Shader::DispatchComputeShader(programID, (Shader::SSBOIndex)inputSSBOIndex, features, m_LagrangeMultipliers.size());
+
+	for (int i = 0; i < m_LagrangeMultipliers.size(); i++)
+		result += m_LagrangeMultipliers[i] * m_Dataset.Labels[i] * std::exp(-1 * m_KernelParameterGamma * diff[i]);
 
 	return result;
 }

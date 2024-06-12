@@ -104,7 +104,7 @@ public:
 	HOG GetHOG();
 	HOG GetHOG(uint32_t flatIndex);
 	
-
+	inline uint32_t GetStride() { return m_Stride; }
 	// dont use this method, it's gonna blow ur ram up (=
 	// use GetHOG with HOGGetterIndex instead
 	std::vector<HOG> GetHOGs();

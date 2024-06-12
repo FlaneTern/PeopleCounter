@@ -187,7 +187,7 @@ void SingleHOGExecutor::ConstructAndNormalizeBlocks()
 		//std::cout << "here2\n";
 	}
 
-	std::cout << "BLOCKSSIZE = " << m_Blocks.size() << '\n';
+	//std::cout << "BLOCKSSIZE = " << m_Blocks.size() << '\n';
 }
 
 

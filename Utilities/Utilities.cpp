@@ -88,17 +88,22 @@ namespace Utilities
 
 	}
 
+
 	std::string ParseName(std::string path)
 	{
 		std::string name = path;
 
 		size_t pos = path.find_last_of('/');
-		if (pos != std::string::npos)
-			name = name.substr(pos, std::string::npos);
+		size_t pos2 = path.find_last_of('\\');
+		if (pos == std::string::npos || pos < pos2)
+			pos = pos2;
 
-		pos = path.find_last_of('.');
 		if (pos != std::string::npos)
-			name = name.substr(0, name.length() - pos + 1);
+			name = name.substr(pos + 1, std::string::npos);
+
+		pos = name.find_last_of('.');
+		if (pos != std::string::npos)
+			name = name.substr(0, pos);
 
 		return name;
 	}
@@ -318,6 +323,23 @@ namespace Utilities
 			paths.push_back(entry.path().string());
 
 		return paths;
+	}
+
+	std::string ReadFileBinary(std::string path)
+	{
+		std::ifstream stream(path, std::ios::binary);
+		if (stream.fail())
+			throw std::runtime_error("gg");
+
+		std::streamsize fileSize = stream.tellg();
+		stream.seekg(0, std::ios::end);
+		fileSize = stream.tellg() - fileSize;
+		stream.seekg(0, std::ios::beg);
+
+		std::string temp(fileSize, '0');
+		stream.read(&temp[0], fileSize);
+
+		return temp;
 	}
 }
 

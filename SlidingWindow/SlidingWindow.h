@@ -52,6 +52,7 @@ public:
 	void ClearDrawnBoundingBox();
 
 	void Draw();
+	void SaveDrawImage();
 
 private:
 	Image m_Image;

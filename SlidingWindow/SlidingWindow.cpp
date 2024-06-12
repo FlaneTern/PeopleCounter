@@ -5,6 +5,9 @@
 
 #include "SlidingWindow.h"
 
+static constexpr double s_FarThreshold = 2.0;
+
+
 struct Assemble
 {
 	int Index1;
@@ -50,7 +53,6 @@ static std::vector<Assemble> ComputeBodyPartDistances(const std::vector<Bounding
 // 1 must be torso coz scale threshold
 static std::vector<Assemble> AttachBodyParts(const std::vector<BoundingBox>& bodyPart1, const std::vector<BoundingBox>& bodyPart2, int maxAttachedTo1, int maxAttachedTo2)
 {
-	static constexpr double s_FarThreshold = 2.0;
 
 
 	std::vector<Assemble> assembler = ComputeBodyPartDistances(bodyPart1, bodyPart2);
@@ -99,7 +101,6 @@ static std::vector<Assemble> AttachBodyParts(const std::vector<BoundingBox>& bod
 
 static std::vector<Assemble> AttachBodyParts(const std::vector<BoundingBox>& bodyPart1, const std::vector<BoundingBox>& bodyPart2, int maxAttachedTo1, int maxAttachedTo2, std::vector<bool> isAttached1, std::vector<bool> isAttached2)
 {
-	static constexpr double s_FarThreshold = 2.0;
 
 
 	std::vector<Assemble> assembler = ComputeBodyPartDistances(bodyPart1, bodyPart2);
@@ -191,7 +192,7 @@ static std::vector<Assemble> AttachBodyPartsSame(const std::vector<BoundingBox>&
 			if (assembler[j].Index2 == bodyPart2Index)
 				bodyPartCounter[bodyPart2Index]--;
 		}
-	}
+	}	
 
 	return assembler;
 }
@@ -241,8 +242,10 @@ void SlidingWindow::GenerateBoundingBoxes()
 
 	std::cout << "Prediction starting !";
 
-	while (m_SHE.GetShape().x >= hogParams.SlidingWindowSize && m_SHE.GetShape().y >= hogParams.SlidingWindowSize)
+	int currentResizeIteration = 1;
+	while (m_SHE.GetShape().x >= hogParams.SlidingWindowSize && m_SHE.GetShape().y >= hogParams.SlidingWindowSize && currentResizeIteration < 11)
 	{
+		currentResizeIteration++;
 		m_SHE.ResetHOGGetterIndex();
 		m_SHE.Execute();
 		uint32_t currentIndex = m_SHE.GetCurrentHOGGetterIndex();
@@ -261,6 +264,7 @@ void SlidingWindow::GenerateBoundingBoxes()
 		std::thread torsoThread;
 		std::thread legThread;
 
+		int currentIteration = 0;
 		do
 		{
 			std::vector<double> hog = m_SHE.GetHOG(currentIndex).m_HOG;
@@ -269,9 +273,47 @@ void SlidingWindow::GenerateBoundingBoxes()
 
 			Shape coords = m_SHE.GetCurrentHOGGetterIndexCoords();
 
+			currentIteration++;
+			std::cout << "currentIndex = " << currentIndex << '\n';
+			std::cout << "Prediction " << currentIteration << " Out of " << std::ceil((double)(m_SHE.GetShape().x - hogParams.SlidingWindowSize + 1) / m_SHE.GetStride()) * std::ceil((double)(m_SHE.GetShape().y - hogParams.SlidingWindowSize + 1) / m_SHE.GetStride()) << '\n';
 
+
+#if 1
 #define PREDICTANDGENERATEBOUNDINGBOX(BODYPART)													   \
 			double HELPER(BODYPART, Score) = HELPER(BODYPART, Classifier).Predict(hog);			   \
+			/*std::cout << "Prediction Score = " << HELPER(BODYPART, Score) << '\n';*/			   \
+			if (HELPER(BODYPART, Score) >= 0.5)													   \
+			{																					   \
+				Shape coords = m_SHE.GetCurrentHOGGetterIndexCoords();							   \
+																								   \
+				coords.x = (uint32_t)(coords.x * originalImageShape.x / (double)currentShape.x);   \
+				coords.y = (uint32_t)(coords.y * originalImageShape.y / (double)currentShape.y);   \
+																								   \
+				HELPER(BODYPART, BoundingBoxes).push_back(										   \
+					{																			   \
+						coords.x,																   \
+						coords.y,																   \
+						boundingBoxSize.x,														   \
+						boundingBoxSize.y,														   \
+						HELPER(BODYPART, Score)													   \
+					});																			   \
+			}
+
+
+
+			
+			headThread = std::thread([&]() {PREDICTANDGENERATEBOUNDINGBOX(Head)});
+			torsoThread = std::thread([&]() {PREDICTANDGENERATEBOUNDINGBOX(Torso)});
+			handThread = std::thread([&]() {PREDICTANDGENERATEBOUNDINGBOX(Hand)});
+			legThread = std::thread([&]() {PREDICTANDGENERATEBOUNDINGBOX(Leg)});
+
+			headThread.join();
+			torsoThread.join();
+			handThread.join();
+			legThread.join();
+#else
+#define PREDICTANDGENERATEBOUNDINGBOX(BODYPART)													   \
+			double HELPER(BODYPART, Score) = HELPER(BODYPART, Classifier).PredictShader(hog);	   \
 			/*std::cout << "Prediction Score = " << HELPER(BODYPART, Score) << '\n';*/			   \
 			if (HELPER(BODYPART, Score) >= 0)													   \
 			{																					   \
@@ -290,16 +332,12 @@ void SlidingWindow::GenerateBoundingBoxes()
 					});																			   \
 			}
 
-			
-			headThread = std::thread([&]() {PREDICTANDGENERATEBOUNDINGBOX(Head)});
-			handThread = std::thread([&]() {PREDICTANDGENERATEBOUNDINGBOX(Hand)});
-			torsoThread = std::thread([&]() {PREDICTANDGENERATEBOUNDINGBOX(Torso)});
-			legThread = std::thread([&]() {PREDICTANDGENERATEBOUNDINGBOX(Leg)});
+			PREDICTANDGENERATEBOUNDINGBOX(Head);
+			PREDICTANDGENERATEBOUNDINGBOX(Hand);
+			PREDICTANDGENERATEBOUNDINGBOX(Torso);
+			PREDICTANDGENERATEBOUNDINGBOX(Leg);
 
-			headThread.join();
-			handThread.join();
-			torsoThread.join();
-			legThread.join();
+#endif
 
 
 
@@ -316,50 +354,94 @@ void SlidingWindow::GenerateBoundingBoxes()
 	std::cout << "BoundingBox Count After Merge (NMS) = " << m_TorsoBoundingBoxes.size() + m_HeadBoundingBoxes.size() + m_HandBoundingBoxes.size() + m_LegBoundingBoxes.size() << '\n';
 	AssemblePeopleBoundingBoxes();
 	std::cout << "BoundingBox Count (People Count) = " << m_PersonBoundingBoxes.size() << '\n';
+	MergeBoundingBoxes();
+	std::cout << "BoundingBox Count (People Count) after merge again = " << m_PersonBoundingBoxes.size() << '\n';
 }
 
 void SlidingWindow::MergeBoundingBoxes()
 {
 
-#define MERGEBOUNDINGBOXES(BODYPART)							 \
-	{															 \
-		auto bbs = HELPER(BODYPART, BoundingBoxes);				 \
-		HELPER(BODYPART, BoundingBoxes).clear();				 \
-																 \
-		while (!bbs.empty())									 \
-		{														 \
-			BoundingBox best;									 \
-			best.Score = -1;									 \
-																 \
-			int bestIndex = -1;									 \
-																 \
-			for (int i = 0; i < bbs.size(); i++)				 \
-			{													 \
-				if (bbs[i].Score >= best.Score)					 \
-				{												 \
-					best = bbs[i];								 \
-					bestIndex = i;								 \
-				}												 \
-			}													 \
-																 \
-			bbs.erase(bbs.begin() + bestIndex);					 \
-			HELPER(BODYPART, BoundingBoxes).push_back(best);	 \
-				 												 \
-			for (int i = 0; i < bbs.size(); i++)				 \
-			{													 \
-				if (ComputeIoU(best, bbs[i]) >= m_IoUThreshold)	 \
-				{												 \
-					bbs.erase(bbs.begin() + i);					 \
-					i--;										 \
-				}												 \
-			}													 \
-		}														 \
-	}
+//#define MERGEBOUNDINGBOXES(BODYPART)							 \
+//	{															 \
+//		auto bbs = HELPER(BODYPART, BoundingBoxes);				 \
+//		HELPER(BODYPART, BoundingBoxes).clear();				 \
+//																 \
+//		while (!bbs.empty())									 \
+//		{														 \
+//			BoundingBox best;									 \
+//			best.Score = -1;									 \
+//																 \
+//			int bestIndex = -1;									 \
+//																 \
+//			for (int i = 0; i < bbs.size(); i++)				 \
+//			{													 \
+//				if (bbs[i].Score >= best.Score)					 \
+//				{												 \
+//					best = bbs[i];								 \
+//					bestIndex = i;								 \
+//				}												 \
+//			}													 \
+//																 \
+//			bbs.erase(bbs.begin() + bestIndex);					 \
+//			HELPER(BODYPART, BoundingBoxes).push_back(best);	 \
+//				 												 \
+//			for (int i = 0; i < bbs.size(); i++)				 \
+//			{													 \
+//				if (ComputeIoU(best, bbs[i]) >= m_IoUThreshold)	 \
+//				{												 \
+//					bbs.erase(bbs.begin() + i);					 \
+//					i--;										 \
+//				}												 \
+//			}													 \
+//		}														 \
+//	}
+//
+//	MERGEBOUNDINGBOXES(Head);
+//	MERGEBOUNDINGBOXES(Hand);
+//	MERGEBOUNDINGBOXES(Torso);
+//	MERGEBOUNDINGBOXES(Leg);
 
-	MERGEBOUNDINGBOXES(Head);
-	MERGEBOUNDINGBOXES(Hand);
-	MERGEBOUNDINGBOXES(Torso);
-	MERGEBOUNDINGBOXES(Leg);
+	auto mergebb = [&](std::vector<BoundingBox>& input)
+	{
+		auto& bbsr = input;
+		auto bbs = input;
+		bbsr.clear();
+
+		while (!bbs.empty())
+		{
+			BoundingBox best;
+			best.Score = -1;
+
+			int bestIndex = -1;
+
+			for (int i = 0; i < bbs.size(); i++)
+			{
+				if (bbs[i].Score >= best.Score)
+				{
+					best = bbs[i];
+					bestIndex = i;
+				}
+			}
+
+			bbs.erase(bbs.begin() + bestIndex);
+			bbsr.push_back(best);
+
+			for (int i = 0; i < bbs.size(); i++)
+			{
+				if (ComputeIoU(best, bbs[i]) >= m_IoUThreshold)
+				{
+					bbs.erase(bbs.begin() + i);
+					i--;
+				}
+			}
+		}
+	};
+
+	mergebb(m_HeadBoundingBoxes);
+	mergebb(m_HandBoundingBoxes);
+	mergebb(m_LegBoundingBoxes);
+	mergebb(m_TorsoBoundingBoxes);
+	mergebb(m_PersonBoundingBoxes);
 
 }
 
@@ -535,7 +617,7 @@ void SlidingWindow::AssemblePeopleBoundingBoxes()
 
 void SlidingWindow::DrawBoundingBox(BodyPart bodyPart, uint32_t thickness)
 {
-	std::vector<double> pixels = m_Image.GetPixels();
+	std::vector<double> pixels = m_DrawImage.GetPixels();
 	Shape shape = m_Image.GetShape();
 
 	static constexpr double HandBoundingBoxColor[] = { 0, 0, 255 };
@@ -544,7 +626,7 @@ void SlidingWindow::DrawBoundingBox(BodyPart bodyPart, uint32_t thickness)
 	static constexpr double LegBoundingBoxColor[] = { 0, 0, 0 };
 	static constexpr double PersonBoundingBoxColor[] = { 255, 255, 255 };
 
-
+#if 0
 #define DRAWBOUNDINGBOXES(BODYPART)																																												  \
 	{																																																			  \
 		for (int i = 0; i < HELPER(BODYPART, BoundingBoxes).size(); i++)																																					  \
@@ -601,6 +683,84 @@ void SlidingWindow::DrawBoundingBox(BodyPart bodyPart, uint32_t thickness)
 	if(bodyPart == BodyPart::Leg) { DRAWBOUNDINGBOXES(Leg) }
 	if(bodyPart == BodyPart::Person) { DRAWBOUNDINGBOXES(Person) }
 
+#endif
+	std::vector<BoundingBox> bbs;
+	double color[3];
+	if (bodyPart == BodyPart::Head)
+	{
+		bbs = m_HeadBoundingBoxes;
+		memcpy(color, HeadBoundingBoxColor, sizeof(color));
+	}
+	if (bodyPart == BodyPart::Hand)
+	{
+		bbs = m_HandBoundingBoxes;
+		memcpy(color, HandBoundingBoxColor, sizeof(color));
+	}
+	if (bodyPart == BodyPart::Torso)
+	{
+		bbs = m_TorsoBoundingBoxes;
+		memcpy(color, TorsoBoundingBoxColor, sizeof(color));
+	}
+	if (bodyPart == BodyPart::Leg)
+	{
+		bbs = m_LegBoundingBoxes;
+		memcpy(color, LegBoundingBoxColor, sizeof(color));
+	}
+	if (bodyPart == BodyPart::Person)
+	{
+		bbs = m_PersonBoundingBoxes;
+		memcpy(color, PersonBoundingBoxColor, sizeof(color));
+	}
+
+	{																																																			  
+		for (int i = 0; i < bbs.size(); i++)																																					  
+		{																																																		  
+			for (int j = bbs[i].YAnchor; j < bbs[i].YAnchor + bbs[i].YSize - 1; j++)																			  
+			{																																																	  
+				for (int k = bbs[i].XAnchor - (thickness / 2); k <= bbs[i].XAnchor + (thickness / 2); k++)																		  
+				{																																																  
+					if (j >= 0 && j < shape.y && k >= 0 && k < shape.x)																																			  
+					{																																															  
+						int coords = Utilities::CoordsToFlat(k, j, 0, shape);																																	  
+						memcpy(&pixels[coords], color, sizeof(color));
+					}																																															  
+				}																																																  
+					
+				for (int k = bbs[i].XAnchor + bbs[i].XSize - 1 - (thickness / 2); k <= bbs[i].XAnchor + bbs[i].XSize - 1 + (thickness / 2); k++)  
+				{																																																  
+					if (j >= 0 && j < shape.y && k >= 0 && k < shape.x)																																			  
+					{																																															  
+						int coords = Utilities::CoordsToFlat(k, j, 0, shape);																																	  
+						memcpy(&pixels[coords], color, sizeof(color));
+					}																																															  
+				}																																																  
+			}																																																	  
+				
+								
+								
+			for (int j = bbs[i].XAnchor; j < bbs[i].XAnchor + bbs[i].XSize - 1; j++)																			  
+			{																																																	  
+				for (int k = bbs[i].YAnchor - (thickness / 2); k <= bbs[i].YAnchor + (thickness / 2); k++)																		  
+				{																																																  
+					if (j >= 0 && j < shape.x && k >= 0 && k < shape.y)																																			  
+					{																																															  
+						int coords = Utilities::CoordsToFlat(j, k, 0, shape);																																	  
+						memcpy(&pixels[coords], color, sizeof(color));
+					}																																															  
+				}																																																  
+										
+				for (int k = bbs[i].YAnchor + bbs[i].YSize - 1 - (thickness / 2); k <= bbs[i].YAnchor + bbs[i].YSize - 1 + (thickness / 2); k++)  
+				{																																																  
+					if (j >= 0 && j < shape.x && k >= 0 && k < shape.y)																																			  
+					{																																															  
+						int coords = Utilities::CoordsToFlat(j, k, 0, shape);																																	  
+						memcpy(&pixels[coords], color, sizeof(color));
+					}																																															  
+				}																																																  
+			}																																																	  
+		}																																																		  
+	}
+
 	m_DrawImage = Image(pixels, shape, m_Image.GetName());
 }
 
@@ -611,5 +771,16 @@ void SlidingWindow::ClearDrawnBoundingBox()
 
 void SlidingWindow::Draw()
 {
+	//m_Image();
 	m_DrawImage.Draw();
+}
+
+void SlidingWindow::SaveDrawImage()
+{
+	m_DrawImage.Save("Prediction_Final/" + m_DrawImage.GetName() + "PredictedDrawPerson.png");
+
+	std::ofstream out("Prediction_Final/" + m_DrawImage.GetName() + "PredictedDrawPerson.txt");
+	out << m_PersonBoundingBoxes.size();
+
+	std::cout << "Saved " << m_DrawImage.GetName() << "\n--------------------------------------------------";
 }
